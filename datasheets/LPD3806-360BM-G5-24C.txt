@@ -1,0 +1,21 @@
+Incremental Optical Rotary Encoder for Arduino 360P/R Wide Voltage Power Supply DC 5-24V 6mm Shaft Quadrature
+
+Product Description
+Functions
+√ This incremental optical rotary encoder can be used to measure the rotational speed, angle and acceleration of the object and the length measurement.
+√ This shaft encoder is suitable for a variety of intelligent control displacement measurement, automatic fixed- length automatic guillotine paper machine, steel cut length control, civilian measured height human scale, students racing robots.
+
+Connection:
+Yellow = A phase, Blue = B phase, Red = Vcc power +, Black = V0
+Notice: AB 2phase output must not be directly connected with VCC, otherwise, it will burn the output triode.
+Specification
+360 p/r (Single-phase 360 pulses/R,Two phase 4 frequency doubling to 1440 pulses).
+-Encoder size: 38 x 35.5mm/1.49" x 1.39"
+-Shaft: 6 x 13mm/0.23" x 0.51"
+-Axis stopper platform: High 5mm, 20mm
+-Power source: DC 5-24V
+-Maximum mechanical speed: 5000 R / min
+-Response frequency: 0-20KHz
+Output: AB 2phase output rectangular orthogonal pulse circuit, the output for the NPN open collector output type
+Package content
+1 x 360P/R Incremental Rotary Encoder
