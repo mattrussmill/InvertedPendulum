@@ -3,6 +3,7 @@
  * @version V1.0
  * @date    March 3, 2014
  * @brief   L6474 library for arduino 
+ * @author  https://github.com/MotorDriver/L6474
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of either the GNU General Public License version 2
