@@ -1,4 +1,4 @@
-Incremental Optical Rotary Encoder for Arduino 360P/R Wide Voltage Power Supply DC 5-24V 6mm Shaft Quadrature
+AB Phase Incremental Optical Rotary Encoder - 360P/R Wide Voltage Power Supply DC 5-24V 6mm Shaft Quadrature
 
 Product Description
 Functions

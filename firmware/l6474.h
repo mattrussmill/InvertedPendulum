@@ -14,7 +14,7 @@
 #ifndef __L6474_H_INCLUDED
 #define __L6474_H_INCLUDED
 
-#include "Arduino.h"
+#include <Arduino.h>
 #include <inttypes.h>
 #include "l6474_target_config.h"
 
@@ -212,7 +212,7 @@ typedef enum {
   L6474_CONFIG_EN_TQREG = ((uint16_t) 0x0020),
   L6474_CONFIG_OC_SD    = ((uint16_t) 0x0080),
   L6474_CONFIG_POW_SR   = ((uint16_t) 0x0300),
-  L6474_CONFIG_TOFF      = ((uint16_t) 0x7C00)
+  L6474_CONFIG_TOFF     = ((uint16_t) 0x7C00)
 } L6474_CONFIG_Masks_t;
 
 /// L6474 clock source options for CONFIG register
@@ -246,38 +246,38 @@ typedef enum {
 
 /// L6474 power bridge output slew_rates options (POW_SR values for CONFIG register)
 typedef enum {
-  L6474_CONFIG_SR_320V_us    =((uint16_t)0x0000),
-  L6474_CONFIG_SR_075V_us    =((uint16_t)0x0100),
-  L6474_CONFIG_SR_110V_us    =((uint16_t)0x0200),
-  L6474_CONFIG_SR_260V_us    =((uint16_t)0x0300)
+  L6474_CONFIG_SR_320V_us    = ((uint16_t)0x0000),
+  L6474_CONFIG_SR_075V_us    = ((uint16_t)0x0100),
+  L6474_CONFIG_SR_110V_us    = ((uint16_t)0x0200),
+  L6474_CONFIG_SR_260V_us    = ((uint16_t)0x0300)
 } L6474_CONFIG_POW_SR_t;
 
 /// L6474 Off time options (TOFF values for CONFIG register)
 typedef enum {
-  L6474_CONFIG_TOFF_004us   = (((uint16_t) 0x01) << 10),
-  L6474_CONFIG_TOFF_008us   = (((uint16_t) 0x02) << 10),
-  L6474_CONFIG_TOFF_012us  = (((uint16_t) 0x03) << 10),
-  L6474_CONFIG_TOFF_016us  = (((uint16_t) 0x04) << 10),
-  L6474_CONFIG_TOFF_020us  = (((uint16_t) 0x05) << 10),
-  L6474_CONFIG_TOFF_024us  = (((uint16_t) 0x06) << 10),
-  L6474_CONFIG_TOFF_028us  = (((uint16_t) 0x07) << 10),
-  L6474_CONFIG_TOFF_032us  = (((uint16_t) 0x08) << 10),
-  L6474_CONFIG_TOFF_036us  = (((uint16_t) 0x09) << 10),
-  L6474_CONFIG_TOFF_040us  = (((uint16_t) 0x0A) << 10),
-  L6474_CONFIG_TOFF_044us  = (((uint16_t) 0x0B) << 10),
-  L6474_CONFIG_TOFF_048us  = (((uint16_t) 0x0C) << 10),
-  L6474_CONFIG_TOFF_052us  = (((uint16_t) 0x0D) << 10),
-  L6474_CONFIG_TOFF_056us  = (((uint16_t) 0x0E) << 10),
-  L6474_CONFIG_TOFF_060us  = (((uint16_t) 0x0F) << 10),
-  L6474_CONFIG_TOFF_064us  = (((uint16_t) 0x10) << 10),
-  L6474_CONFIG_TOFF_068us  = (((uint16_t) 0x11) << 10),
-  L6474_CONFIG_TOFF_072us  = (((uint16_t) 0x12) << 10),
-  L6474_CONFIG_TOFF_076us  = (((uint16_t) 0x13) << 10),
-  L6474_CONFIG_TOFF_080us  = (((uint16_t) 0x14) << 10),
-  L6474_CONFIG_TOFF_084us  = (((uint16_t) 0x15) << 10),
-  L6474_CONFIG_TOFF_088us  = (((uint16_t) 0x16) << 10),
-  L6474_CONFIG_TOFF_092us  = (((uint16_t) 0x17) << 10),
-  L6474_CONFIG_TOFF_096us  = (((uint16_t) 0x18) << 10),
+  L6474_CONFIG_TOFF_004us = (((uint16_t) 0x01) << 10),
+  L6474_CONFIG_TOFF_008us = (((uint16_t) 0x02) << 10),
+  L6474_CONFIG_TOFF_012us = (((uint16_t) 0x03) << 10),
+  L6474_CONFIG_TOFF_016us = (((uint16_t) 0x04) << 10),
+  L6474_CONFIG_TOFF_020us = (((uint16_t) 0x05) << 10),
+  L6474_CONFIG_TOFF_024us = (((uint16_t) 0x06) << 10),
+  L6474_CONFIG_TOFF_028us = (((uint16_t) 0x07) << 10),
+  L6474_CONFIG_TOFF_032us = (((uint16_t) 0x08) << 10),
+  L6474_CONFIG_TOFF_036us = (((uint16_t) 0x09) << 10),
+  L6474_CONFIG_TOFF_040us = (((uint16_t) 0x0A) << 10),
+  L6474_CONFIG_TOFF_044us = (((uint16_t) 0x0B) << 10),
+  L6474_CONFIG_TOFF_048us = (((uint16_t) 0x0C) << 10),
+  L6474_CONFIG_TOFF_052us = (((uint16_t) 0x0D) << 10),
+  L6474_CONFIG_TOFF_056us = (((uint16_t) 0x0E) << 10),
+  L6474_CONFIG_TOFF_060us = (((uint16_t) 0x0F) << 10),
+  L6474_CONFIG_TOFF_064us = (((uint16_t) 0x10) << 10),
+  L6474_CONFIG_TOFF_068us = (((uint16_t) 0x11) << 10),
+  L6474_CONFIG_TOFF_072us = (((uint16_t) 0x12) << 10),
+  L6474_CONFIG_TOFF_076us = (((uint16_t) 0x13) << 10),
+  L6474_CONFIG_TOFF_080us = (((uint16_t) 0x14) << 10),
+  L6474_CONFIG_TOFF_084us = (((uint16_t) 0x15) << 10),
+  L6474_CONFIG_TOFF_088us = (((uint16_t) 0x16) << 10),
+  L6474_CONFIG_TOFF_092us = (((uint16_t) 0x17) << 10),
+  L6474_CONFIG_TOFF_096us = (((uint16_t) 0x18) << 10),
   L6474_CONFIG_TOFF_100us = (((uint16_t) 0x19) << 10),
   L6474_CONFIG_TOFF_104us = (((uint16_t) 0x1A) << 10),
   L6474_CONFIG_TOFF_108us = (((uint16_t) 0x1B) << 10),
