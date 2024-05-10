@@ -107,7 +107,7 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
   {
     position = pulsesPerRotation - 1;
   }
-  else if (newPosition > pulsesPerRotation - 1)
+  else if (newPosition >= pulsesPerRotation)
   {
     position = 0;
   }
