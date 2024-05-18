@@ -15,7 +15,6 @@
 #define __QUADRATURE_H_INCLUDED
 
 #include <inttypes.h>
-#include <Arduino.h>
 
 /// Digital pins used for the quadrature pulse signals
 #define Quadrature_Lead_Pulse_CW_Pin   (2) // Green wire
@@ -39,15 +38,20 @@ class Quadrature
     int16_t GetAcceleration();      //Return the acceleration in pps^2
     uint16_t GetCurrentSpeed();     //Return the current speed in pps
 
+    static volatile unsigned long tmp; //todo remove
+    //static volatile unsigned long tmpt; //todo remove
+
   private:
+    void InitIsrIntervalForTimer2();
     static void PulseCW();
     static void PulseCCW();
     static void UpdatePosition(incrementPosition_t direction);
 
     // member variables
-    static volatile int16_t position;         //Position of the quadrature in pulses from 0 to ppr-1
-    //static volatile 
+    static volatile int16_t position;         //Position of the quadrature in pulses from 0 to ppr-1 
     static uint16_t pulsesPerRotation;   //Number of pulses per rotation of the quadrature
+
+    
 };
 
 #endif /* #ifndef __QUADRATURE_H_INCLUDED */

@@ -23,6 +23,11 @@
 //are based on timer 0 (delay(), millis()...)
 //#define _USE_TIMER_0_FOR_L6474
 
+//To use 2 L6474 shield boards you have to enable this flag.
+//Disabling this frees up timer 2 for use elsewhere if only
+//1 shield is in use.
+//#define _USE_TIMER_2_FOR_L6474
+
 /// Define to print debug logs via the UART 
 #ifndef _DEBUG_L6474
 //#define _DEBUG_L6474

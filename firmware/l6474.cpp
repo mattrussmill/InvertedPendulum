@@ -1779,6 +1779,7 @@ ISR(TIMER1_OVF_vect)
   }
 }
 
+#ifdef _USE_TIMER_2_FOR_L6474
 /******************************************************//**
  * @brief Timer2 interrupt handler used by PW2 for shield 1
  * and enable the power bridge
@@ -1796,6 +1797,7 @@ ISR(TIMER1_OVF_vect)
     }
   }
 }
+#endif
 
 /******************************************************//**
  * @brief  Debug   function to get the amount of free ram

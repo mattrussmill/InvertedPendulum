@@ -10,6 +10,7 @@ L6474 L6474shield;
 Quadrature quadrature;
 
 uint16_t position;
+unsigned long tmp = millis();
   
 void setup()
 {
@@ -38,9 +39,7 @@ void setup()
   position = quadrature.GetCurrentPosition();
 
 
-//----- Change step mode to full step mode
-  /* Select decap mode for shield 0 */
-  //L6474shield.CmdSetParam(0, L6474_Registers_t param, uint32_t value)
+// TODO check if polarity is backwards - Change step mode to full step mode
 
   /* Select full step mode for shield 0 */
   L6474shield.SelectStepMode(0, L6474_STEP_SEL_1_4);  
@@ -62,8 +61,15 @@ void loop()
     position = quadrature.GetCurrentPosition();
     Serial.println(position);
   }
-  
 
+//test the frequency
+  if (millis() - tmp >= 1000) {
+    Serial.println(Quadrature::tmp);
+    Quadrature::tmp = 0;
+    tmp = millis();
+  }
+  
+// TODO figure out why motor not working right - check wires are right configuration
   // if (positionDiff != 0)
   // {
   //   if (positionDiff > 0)
