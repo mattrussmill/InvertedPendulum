@@ -12,11 +12,22 @@
  **********************************************************/
 
 #include "Quadrature.h"
-#include <Arduino.h>
+
 
 /// static member definitions
 volatile int16_t Quadrature::position;
+volatile uint16_t Quadrature::speed[2];
+volatile uint16_t Quadrature::speedSample;
+volatile int8_t Quadrature::directionVector; 
 uint16_t Quadrature::pulsesPerRotation;
+volatile bool Quadrature::calcFastPulse;
+
+//test values
+class Quadrature* Quadrature::instancePtr = NULL;
+volatile unsigned long Quadrature::lastPositionTime;
+volatile uint16_t Quadrature::pulsesPerSample;
+volatile unsigned long Quadrature::compTime;
+
 volatile unsigned long Quadrature::tmp = 0; //todo remove
 
 
@@ -33,8 +44,16 @@ void Quadrature::Begin(uint16_t ppr)
   pinMode(Quadrature_Lead_Pulse_CCW_Pin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CW_Pin), PulseCW, RISING);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CCW_Pin), PulseCCW, RISING);
-  InitIsrIntervalForTimer2();
   SetHomePosition();
+  pulsesPerSample = 0;
+  directionVector = 0;
+  speedSample = 0;
+  speed[0] = 0;
+  speed[1] = 0;
+  calcFastPulse = true; //todo usually false, true to test until mechanism is in place to auto switch
+  lastPositionTime = micros();
+  instancePtr = this;
+  InitIsrIntervalForTimer2();
 }
 
 /******************************************************//**
@@ -58,6 +77,16 @@ void Quadrature::SetHomePosition()
 int16_t Quadrature::GetCurrentPosition()
 {
   return position;
+}
+
+/******************************************************//**
+ * @brief  TODO
+ * @param  None
+ * @retval TODO
+ **********************************************************/
+int32_t Quadrature::GetCurrentVelocity()
+{
+  return (uint32_t)speed[0] * directionVector;
 }
 
 /******************************************************//**
@@ -142,7 +171,9 @@ void Quadrature::PulseCCW()
  **********************************************************/
 void Quadrature::UpdatePosition(incrementPosition_t direction)
 {
-  int16_t newPosition = position + direction;
+  // update the position
+  directionVector = direction;
+  int16_t newPosition = position + directionVector;
   if (newPosition < 0)
   {
     position = pulsesPerRotation - 1;
@@ -155,15 +186,106 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
   {
     position = newPosition;
   }
+
+  // calculate speed if at slow speed
+  if (!calcFastPulse)
+  {
+    unsigned long start = micros();
+    UpdateSpeed(1000000L, micros() - lastPositionTime);
+    compTime = micros() - start;
+    lastPositionTime = micros() - compTime; //todo don't forget to handle overflow for micros()
+  }
+  else
+  {
+    pulsesPerSample++;
+    lastPositionTime = micros();
+  }
 }
 
 /******************************************************//**
- * @brief Timer2 interrupt handler used by PW2 for shield 1 //TODO
+ * @brief  Gets the pointer to the Quadrature instance
+ * @param  None
+ * @retval Pointer to the instance of Quadrature
+  **********************************************************/
+class Quadrature* Quadrature::GetInstancePtr(void)
+{
+  return (class Quadrature*)instancePtr;
+}
+
+//todo write comment header
+bool Quadrature::GetFastCalcStatus()
+{
+  return calcFastPulse;
+}
+
+//todo write comment header
+uint16_t Quadrature::GetPulsesPerSample()
+{
+  return pulsesPerSample;
+}
+
+//todo write comment header
+void Quadrature::ClearPulsesPerSample()
+{
+  pulsesPerSample = 0;
+}
+
+/******************************************************//**
+ * @brief  Calculates the current speed of the TODO
+ * @param  None
+ * @retval Pointer to the instance of Quadrature
+  **********************************************************/
+// fast pulse and slow pulse condition. Slow pulse condition is < 62 pps since a period of ~0.016s as discussed in InitIsrIntervalForTimer2 comments.
+// The basic formula for a discrete Infinite Impulse Response (IIR) low-pass filter (LPF) being: y(i)= β∗x(i)+(1-β)∗y(i-1)  note == this discrete-time implementation of a simple RC low-pass filter is the exponentially weighted moving average
+// slightly improved low pass averages the last two inputs instead of using only the current input: y[n]=a⋅(x[n]+x[n−1])/2 + (1−a)⋅y[n−1]
+void Quadrature::UpdateSpeed(uint32_t sample, unsigned long periodMicros)
+{
+  speedSample = sample / periodMicros;
+  speed[1] = speed[0];
+  speed[0] = 0.625f * speedSample + 0.375f * speed[1];
+}
+
+/******************************************************//**
+ * @brief  Getter method for the last time the position changed
+ * in microseconds
+ * @param  None
+ * @retval The last time the position changed in microseconds
+  **********************************************************/
+unsigned long Quadrature::GetLastPositionTime()
+{
+  return lastPositionTime;
+}
+
+//todo write function header or get rid of function call -> prob don't need it anymore since update speed is exposed now
+void Quadrature::CheckSpeedTimeout()
+{
+  if (micros() - instancePtr->GetLastPositionTime() > 500000) //todo don't forget to handle overflow for micros()
+  {
+    //UpdateSpeed(0, 250000); ??
+    speed[0] = 0;
+  }
+}
+
+/******************************************************//**
+ * @brief Timer2 interrupt handler used by PW2 for shield 1 //TODO used for speed and accel cleanup?
  * and enable the power bridge - only using shield 0 (Timer1) in l6474 library. Timer 1 is open for the encoder. - starts on page 74 in datasheet. Likely have to take this out of waveform generation mode from the motor, if already claimed. Arduino uses timer0 for milis() and other functions.
  * @param  None
  * @retval None
  **********************************************************/
 ISR(TIMER2_COMPA_vect)
 {
-  Quadrature::tmp++;
+  class Quadrature* instancePtr = Quadrature::GetInstancePtr();
+  if (instancePtr)
+  {
+    //instancePtr->CheckSpeedTimeout();
+    if (instancePtr->GetFastCalcStatus())
+    {
+      instancePtr->UpdateSpeed(1000000 * (uint32_t)(instancePtr->GetPulsesPerSample()), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
+      instancePtr->ClearPulsesPerSample();
+    } //this works much better with the filter -> maybe set a mode to select between fast, slow, or auto speed calculation?
+    // also must figure out the change of direction when calculating speed with this method. Also see if I can speed up the calc any faster? Can do this later... might fix 
+  }
+
+  //Quadrature::tmp++;
 }
+

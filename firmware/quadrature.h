@@ -15,6 +15,7 @@
 #define __QUADRATURE_H_INCLUDED
 
 #include <inttypes.h>
+#include <Arduino.h>
 
 /// Digital pins used for the quadrature pulse signals
 #define Quadrature_Lead_Pulse_CW_Pin   (2) // Green wire
@@ -35,11 +36,23 @@ class Quadrature
     void SetHomePosition();         //Set the quadrature position to zero
 
     int16_t GetCurrentPosition();   //Return the current position in pulses between 0 and ppr
+    int32_t GetCurrentVelocity();   //Return the current velocity in pps (CCW is + / CW is -)
     int16_t GetAcceleration();      //Return the acceleration in pps^2
-    uint16_t GetCurrentSpeed();     //Return the current speed in pps
+
+    // these methods are for use in the ISR only
+    static class Quadrature *GetInstancePtr(void); //todo
+    static unsigned long GetLastPositionTime();
+    static bool GetFastCalcStatus();
+    static uint16_t GetPulsesPerSample();
+    static void ClearPulsesPerSample();
+    static void UpdateSpeed(uint32_t sample, unsigned long periodMicros);
+    static void CheckSpeedTimeout();
+
 
     static volatile unsigned long tmp; //todo remove
     //static volatile unsigned long tmpt; //todo remove
+
+    static volatile unsigned long compTime; //todo do I need this?
 
   private:
     void InitIsrIntervalForTimer2();
@@ -47,9 +60,19 @@ class Quadrature
     static void PulseCCW();
     static void UpdatePosition(incrementPosition_t direction);
 
+
     // member variables
-    static volatile int16_t position;         //Position of the quadrature in pulses from 0 to ppr-1 
-    static uint16_t pulsesPerRotation;   //Number of pulses per rotation of the quadrature
+    static volatile int16_t position;               //Position of the quadrature in pulses from 0 to ppr-1
+    static volatile uint16_t speed[2];              //Filtered rotation speed in pulses per second (pps)
+    static volatile uint16_t speedSample;           //Raw rotation speed sample in pulses per second (pps)
+    static volatile int8_t directionVector;         //The direction of the current rotation (CCW is + / CW is -)
+    static class Quadrature *instancePtr;           //Pointer so the global ISR can call public methods
+    static volatile unsigned long lastPositionTime; //Timestamp the position was last updated in microseconds
+    static volatile uint16_t pulsesPerSample;
+    static volatile bool calcFastPulse;             //Flag determines if speed is calculated via pulse counting (fast speeds) or pulse timing (slow speeds)
+
+
+    static uint16_t pulsesPerRotation;              //Number of pulses in one rotation of the quadrature
 
     
 };

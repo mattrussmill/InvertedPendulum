@@ -10,6 +10,7 @@ L6474 L6474shield;
 Quadrature quadrature;
 
 uint16_t position;
+int32_t velocity;
 unsigned long tmp = millis();
   
 void setup()
@@ -37,52 +38,62 @@ void setup()
   quadrature.Begin(360);
 
   position = quadrature.GetCurrentPosition();
+  velocity = quadrature.GetCurrentVelocity();
 
 
 // TODO check if polarity is backwards - Change step mode to full step mode
 
   /* Select full step mode for shield 0 */
-  L6474shield.SelectStepMode(0, L6474_STEP_SEL_1_4);  
+  L6474shield.SelectStepMode(0, L6474_STEP_SEL_1);  
 
   /* Update speed, acceleration, deceleration for 1/16 microstepping mode*/
-  L6474shield.SetMaxSpeed(0, 1000);
-  L6474shield.SetMinSpeed(0, 1000);
-  L6474shield.SetAcceleration(0, 5000);
-  L6474shield.SetDeceleration(0, 5000);
+  // L6474shield.SetMaxSpeed(0, 100);
+  // L6474shield.SetMinSpeed(0, 99);
+  // L6474shield.SetAcceleration(0, 10000);
+  // L6474shield.SetDeceleration(0, 10000);
   
+  //L6474shield.Run(0, BACKWARD);
   Serial.begin(9600);
+
+  
 }
 
 void loop()
 {
 
-  if (quadrature.GetCurrentPosition() != position)
+  if ( velocity != quadrature.GetCurrentVelocity())
   {
     position = quadrature.GetCurrentPosition();
-    Serial.println(position);
+    velocity = quadrature.GetCurrentVelocity();
+    Serial.print("us:");
+    Serial.print(Quadrature::compTime);
+    Serial.print("\tpos: ");
+    Serial.print(position);
+    Serial.print("\tvel:");
+    Serial.println(velocity);
+    
   }
 
 //test the frequency
-  if (millis() - tmp >= 1000) {
-    Serial.println(Quadrature::tmp);
-    Quadrature::tmp = 0;
-    tmp = millis();
-  }
+  // if (millis() - tmp >= 1000) {
+  //   Serial.println(Quadrature::tmp);
+  //   Quadrature::tmp = 0;
+  //   tmp = millis();
+  // }
   
 // TODO figure out why motor not working right - check wires are right configuration
-  // if (positionDiff != 0)
-  // {
-  //   if (positionDiff > 0)
-  //   {
-  //     L6474shield.Move(0, BACKWARD, positionDiff); //ccw
-  //   }
-  //   else 
-  //   {
-  //     L6474shield.Move(0, FORWARD, abs(positionDiff));
-  //   }
-  //   positionDiff = 0;
-  // }
 
-  
+  // L6474shield.Move(0, BACKWARD, 200); //ccw
+  // Serial.print(L6474shield.GetCurrentSpeed(0));
+  // Serial.print("\t");
+  // Serial.println(quadrature.GetCurrentVelocity());
+  // L6474shield.WaitWhileActive(0);
+
+
+  //delay(1000);
+  // L6474shield.Move(0, FORWARD, 200);
+  // L6474shield.WaitWhileActive(0);
+  // delay(1000);
+
 
 }
