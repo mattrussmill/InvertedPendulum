@@ -45,7 +45,7 @@ class Quadrature
     static bool GetFastCalcStatus();
     static uint16_t GetPulsesPerSample();
     static void ClearPulsesPerSample();
-    static void UpdateSpeed(uint32_t sample, unsigned long periodMicros);
+    static void UpdateSpeed(uint32_t samples, unsigned long periodMicros);
     static void CheckSpeedTimeout();
 
 

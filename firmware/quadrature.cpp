@@ -1,7 +1,7 @@
 /******************************************************//**
  * @file    quadrature.cpp
  * @version V1.0
- * @date    May 6, 2024
+ * @date    May 21, 2024
  * @brief   AB two-phase quadrature optical encoder library for arduino 
  * @author  Matthew R. Miller
  *
@@ -50,7 +50,7 @@ void Quadrature::Begin(uint16_t ppr)
   speedSample = 0;
   speed[0] = 0;
   speed[1] = 0;
-  calcFastPulse = true; //todo usually false, true to test until mechanism is in place to auto switch
+  calcFastPulse = false; //todo usually false, true to test until mechanism is in place to auto switch
   lastPositionTime = micros();
   instancePtr = this;
   InitIsrIntervalForTimer2();
@@ -166,13 +166,18 @@ void Quadrature::PulseCCW()
 /******************************************************//**
  * @brief  Incriment the position of the encoder by one pulse
  * where CCW is + and CW is -, as is for quadrant standard position
+ * when measuring rotation from a starting position
  * @param  direction The direction in which the encoder has turned.
  * @retval None
  **********************************************************/
 void Quadrature::UpdatePosition(incrementPosition_t direction)
 {
-  // update the position
+  /* update the direction of the newest pulse */ 
   directionVector = direction;
+
+  /* update the position based on the most recent pulse direction 
+   * and account for rollover of the number of pulses from the home
+   * position of 0 to ppr - 1 */
   int16_t newPosition = position + directionVector;
   if (newPosition < 0)
   {
@@ -187,13 +192,19 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
     position = newPosition;
   }
 
-  // calculate speed if at slow speed
+  // calculate speed if at slow speed //todo comment
   if (!calcFastPulse)
   {
-    unsigned long start = micros();
+    unsigned long startComputationTime = micros();
+
+    /* When updating the speed, scale from one pulse / second to pulses / microsecond by (p/s) * (1^6s/1us).
+     * We do this to maintain accuracy while performing integer only operations for the speed calculation. */
     UpdateSpeed(1000000L, micros() - lastPositionTime);
-    compTime = micros() - start;
-    lastPositionTime = micros() - compTime; //todo don't forget to handle overflow for micros()
+
+    /* since only 1 pulse is counted, accounting for the computation time aids in accuracy of the speed calculation*/
+    unsigned int totalComputationTime = micros() - startComputationTime; //todo computation time might move to the UpdateSpeed function to aid in calculating acceleration
+    compTime = totalComputationTime;
+    lastPositionTime = micros() - totalComputationTime;
   }
   else
   {
@@ -231,18 +242,32 @@ void Quadrature::ClearPulsesPerSample()
 }
 
 /******************************************************//**
- * @brief  Calculates the current speed of the TODO
- * @param  None
- * @retval Pointer to the instance of Quadrature
+ * @brief Calculates the current rotational speed of the device
+ * in pulses per second using a range of samples over a microsecond
+ * sampling period. The output of this calculation is smoothed with
+ * a low pass filter to reduce jitter between pulses.
+ * @param samples The number of samples, or pulses, in the sample period.
+ * @param periodMicros The sample period in microseconds.
+ * @retval None
   **********************************************************/
-// fast pulse and slow pulse condition. Slow pulse condition is < 62 pps since a period of ~0.016s as discussed in InitIsrIntervalForTimer2 comments.
-// The basic formula for a discrete Infinite Impulse Response (IIR) low-pass filter (LPF) being: y(i)= β∗x(i)+(1-β)∗y(i-1)  note == this discrete-time implementation of a simple RC low-pass filter is the exponentially weighted moving average
-// slightly improved low pass averages the last two inputs instead of using only the current input: y[n]=a⋅(x[n]+x[n−1])/2 + (1−a)⋅y[n−1]
-void Quadrature::UpdateSpeed(uint32_t sample, unsigned long periodMicros)
+void Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicros)
 {
-  speedSample = sample / periodMicros;
+  /* Using a sample period of microseconds for relatively slow pulse speed, the resolution
+   * remains high enough to use integer math instead of floating point operations to reduce
+   * calculation time. */
+  speedSample = samples / periodMicros;
   speed[1] = speed[0];
-  speed[0] = 0.625f * speedSample + 0.375f * speed[1];
+
+  /* The formula used for the filter is basic a formula for a discrete Infinite Impulse Response (IIR)
+   * low-pass filter (LPF), also known as a weighted moving average, being: y[i]= B∗x[i]+(1-B)∗y[i-1].
+   * By using a fraction, B=5/8, we are able to simplify the equation and avoid using floating point arithmetic: 
+   * y[i]= 5/8∗x[i]+(1-5/8)∗y[i-1] = 5/8∗x[i]+(3/8)∗y[i-1] = (5∗x[i]+3∗y[i-1])/8
+   * This reduced computation time from ~82us to ~48us from the floating point solution */
+  speed[0] = (5 * speedSample + 3 * speed[1]) / 8;
+
+  /* Note: Tried a slightly improved low pass that averages the last two inputs instead of using only
+   * the current input: y[i]=B(x[i]+x[i−1])/2 + (1−B)y[i−1], but this proved to smooth the results
+   * more than desired, even when adjusting B to weight the samples more. */
 }
 
 /******************************************************//**
@@ -277,13 +302,19 @@ ISR(TIMER2_COMPA_vect)
   class Quadrature* instancePtr = Quadrature::GetInstancePtr();
   if (instancePtr)
   {
-    //instancePtr->CheckSpeedTimeout();
+    //instancePtr->CheckSpeedTimeout(); //todo don't forget to check for 0 timeout when in slow pulse mode
     if (instancePtr->GetFastCalcStatus())
     {
-      instancePtr->UpdateSpeed(1000000 * (uint32_t)(instancePtr->GetPulsesPerSample()), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
+      unsigned long start = micros();
+      instancePtr->UpdateSpeed(1000000L * (uint32_t)(instancePtr->GetPulsesPerSample()), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
       instancePtr->ClearPulsesPerSample();
+      instancePtr->compTime = micros() - start;
     } //this works much better with the filter -> maybe set a mode to select between fast, slow, or auto speed calculation?
     // also must figure out the change of direction when calculating speed with this method. Also see if I can speed up the calc any faster? Can do this later... might fix 
+
+    // todo in here we can check the velocity to see if we should switch between high speed vs low speed instead of setting the flag from the single pulse interrupt
+    // when switching to high speed timing (threshold probably > 124pps?), will have to reset the timer to 0 so we get a full sample since we are at a fixed sample rate
+    // look into nyquist theory for sampling when determining the threshold?
   }
 
   //Quadrature::tmp++;
