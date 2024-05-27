@@ -188,9 +188,6 @@ void Quadrature::PulseCCW()
  **********************************************************/
 void Quadrature::UpdatePosition(incrementPosition_t direction)
 {
-  /* update the direction of the newest pulse */ 
-  directionVector = direction;
-
   /* update the position based on the most recent pulse direction 
    * and account for rollover of the number of pulses from the home
    * position of 0 to ppr - 1 */
@@ -216,10 +213,13 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
     /* since only 1 pulse is counted, accounting for the computation time of the LPF aids 
      * in accuracy of the speed calculation*/
     lastPositionTime = micros() - UpdateSpeed(1L, micros() - lastPositionTime);
+
+    /* update the direction of the newest pulse */ 
+    directionVector = direction;
   }
   else
   {
-    pulsesPerSample++;
+    pulsesPerSample += direction;
     lastPositionTime = micros();
   }
 }
@@ -315,7 +315,8 @@ void Quadrature::IsrStepClockHandler()
 {
     if (doFastPulseCalc)
     {
-      UpdateSpeed((uint32_t)(pulsesPerSample), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
+      UpdateSpeed((uint32_t) abs(pulsesPerSample), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
+      directionVector = pulsesPerSample > 0 ? 1 : -1;
     }
     else
     {

@@ -68,11 +68,11 @@ void loop()
     position = quadrature.GetCurrentPosition();
     velocity = quadrature.GetCurrentVelocity();
     acceleration = quadrature.GetCurrentAcceleration();
-    Serial.print("pos: ");
-    Serial.print(position);
-    Serial.print("\tvel:");
+    // Serial.print("pos: ");
+    // Serial.print(position);
+    Serial.print("vel:");
     Serial.print(velocity);
-    Serial.print("\tacc:");
+    Serial.print("\t\tacc:");
     Serial.println(acceleration);
     
   }

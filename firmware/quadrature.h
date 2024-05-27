@@ -59,7 +59,7 @@ class Quadrature
     //volatile unsigned long speedSampleTime[2];  //Timestamp in us when the speed samples were calculated
     volatile int8_t directionVector;            //The direction of the current rotation (CCW is + / CW is -)
     volatile unsigned long lastPositionTime;    //Timestamp the position was last updated in microseconds
-    volatile uint16_t pulsesPerSample;
+    volatile int32_t pulsesPerSample;
     volatile bool doFastPulseCalc;              //Flag determines if speed is calculated via pulse counting (fast speeds) or pulse timing (slow speeds)
     static class Quadrature *instancePtr;       //Pointer so the global ISR can call public methods
 
