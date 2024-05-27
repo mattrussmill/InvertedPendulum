@@ -12,24 +12,10 @@
  **********************************************************/
 
 #include "Quadrature.h"
-
+#include <Arduino.h>
 
 /// static member definitions
-volatile int16_t Quadrature::position;
-volatile uint16_t Quadrature::speed[2];
-volatile uint16_t Quadrature::speedSample;
-volatile int8_t Quadrature::directionVector; 
-uint16_t Quadrature::pulsesPerRotation;
-volatile bool Quadrature::calcFastPulse;
-
-//test values
 class Quadrature* Quadrature::instancePtr = NULL;
-volatile unsigned long Quadrature::lastPositionTime;
-volatile uint16_t Quadrature::pulsesPerSample;
-volatile unsigned long Quadrature::compTime;
-
-volatile unsigned long Quadrature::tmp = 0; //todo remove
-
 
 /******************************************************//**
  * @brief  Sets the ppr for the quadrature encoder device and
@@ -40,20 +26,24 @@ volatile unsigned long Quadrature::tmp = 0; //todo remove
 void Quadrature::Begin(uint16_t ppr)
 {
   pulsesPerRotation = ppr;
+  pulsesPerSample = 0;
+  directionVector = 0;
+  speed[0] = 0;
+  speed[1] = 0;
+  //speedSampleTime[0] = micros();
+  //speedSampleTime[1] = speedSampleTime[0];
+  doFastPulseCalc = false;
+
   pinMode(Quadrature_Lead_Pulse_CW_Pin, INPUT_PULLUP);
   pinMode(Quadrature_Lead_Pulse_CCW_Pin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CW_Pin), PulseCW, RISING);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CCW_Pin), PulseCCW, RISING);
-  SetHomePosition();
-  pulsesPerSample = 0;
-  directionVector = 0;
-  speedSample = 0;
-  speed[0] = 0;
-  speed[1] = 0;
-  calcFastPulse = false; //todo usually false, true to test until mechanism is in place to auto switch
-  lastPositionTime = micros();
+  
   instancePtr = this;
   InitIsrIntervalForTimer2();
+
+  SetHomePosition();
+  lastPositionTime = micros();
 }
 
 /******************************************************//**
@@ -69,6 +59,17 @@ void Quadrature::SetHomePosition()
 }
 
 /******************************************************//**
+ * @brief  Return the number of pulses in one rotation of 
+ * the quadrature
+ * @param  None
+ * @retval pulses per rotation member variable
+ **********************************************************/
+uint16_t Quadrature::GetPulsesPerRotation()
+{
+  return pulsesPerRotation;
+}
+
+/******************************************************//**
  * @brief  Returns the current position in pulses away from
  * 0 to ppr-1 in a CCW rotation.
  * @param  None
@@ -80,13 +81,20 @@ int16_t Quadrature::GetCurrentPosition()
 }
 
 /******************************************************//**
- * @brief  TODO
+ * @brief  Returns the current rotational velocity of the
+ * device in pulses per second (pps). Direction is indicated
+ * by sign where CCW is + and CW is -
  * @param  None
  * @retval TODO
  **********************************************************/
 int32_t Quadrature::GetCurrentVelocity()
 {
   return (uint32_t)speed[0] * directionVector;
+}
+
+int32_t Quadrature::GetCurrentAcceleration()
+{
+  return 1;
 }
 
 /******************************************************//**
@@ -135,13 +143,17 @@ void Quadrature::InitIsrIntervalForTimer2()
  **********************************************************/
 void Quadrature::PulseCW()
 {
-  if (digitalRead(Quadrature_Lead_Pulse_CCW_Pin) == LOW)
+  class Quadrature* instancePtr = Quadrature::GetInstancePtr();
+  if (instancePtr)
   {
-    UpdatePosition(INCRIMENT_CW);
-  }
-  else
-  {
-    UpdatePosition(INCRIMENT_CCW);
+    if (digitalRead(Quadrature_Lead_Pulse_CCW_Pin) == LOW)
+    {
+      instancePtr->UpdatePosition(INCRIMENT_CW);
+    }
+    else
+    {
+      instancePtr->UpdatePosition(INCRIMENT_CCW);
+    }
   }
 }
 
@@ -153,13 +165,17 @@ void Quadrature::PulseCW()
  **********************************************************/
 void Quadrature::PulseCCW()
 {
-  if (digitalRead(Quadrature_Lead_Pulse_CW_Pin) == LOW)
+  class Quadrature* instancePtr = Quadrature::GetInstancePtr();
+  if (instancePtr)
   {
-    UpdatePosition(INCRIMENT_CCW);
-  }
-  else
-  {
-    UpdatePosition(INCRIMENT_CW);
+    if (digitalRead(Quadrature_Lead_Pulse_CW_Pin) == LOW)
+    {
+      instancePtr->UpdatePosition(INCRIMENT_CCW);
+    }
+    else
+    {
+      instancePtr->UpdatePosition(INCRIMENT_CW);
+    }
   }
 } 
 
@@ -192,19 +208,14 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
     position = newPosition;
   }
 
-  // calculate speed if at slow speed //todo comment
-  if (!calcFastPulse)
+  /* If pulse rate is below 125 pps, calculate the speed based on the time between pulses
+   * as counting the pulses in a fixed period becomes less accurate as slower speeds. See
+   * CheckFastCalcStatus comment for more detail */
+  if (!doFastPulseCalc)
   {
-    unsigned long startComputationTime = micros();
-
-    /* When updating the speed, scale from one pulse / second to pulses / microsecond by (p/s) * (1^6s/1us).
-     * We do this to maintain accuracy while performing integer only operations for the speed calculation. */
-    UpdateSpeed(1000000L, micros() - lastPositionTime);
-
-    /* since only 1 pulse is counted, accounting for the computation time aids in accuracy of the speed calculation*/
-    unsigned int totalComputationTime = micros() - startComputationTime; //todo computation time might move to the UpdateSpeed function to aid in calculating acceleration
-    compTime = totalComputationTime;
-    lastPositionTime = micros() - totalComputationTime;
+    /* since only 1 pulse is counted, accounting for the computation time of the LPF aids 
+     * in accuracy of the speed calculation*/
+    lastPositionTime = micros() - UpdateSpeed(1L, micros() - lastPositionTime);
   }
   else
   {
@@ -223,72 +234,96 @@ class Quadrature* Quadrature::GetInstancePtr(void)
   return (class Quadrature*)instancePtr;
 }
 
-//todo write comment header
-bool Quadrature::GetFastCalcStatus()
+/******************************************************//**
+ * @brief Checks and updates the flag which determines whether or not 
+ * to use pulse counting or pulse timing to determine the rate of rotation.
+ * Pulse counting is used for speeds exceeding 125pps and pulse timing is
+ * used for speeds lower or equal to 125pps. This was based on the ISR clock
+ * period of 16.25ms. If the pulse timing, which has a period of ~50us when
+ * including filter calculations, exceeds 40% of the ISR clock period.
+ * So, 16.25ms * 40% = 6.5ms. 6.5ms / 50us = 130 pulses.
+ * @param  None
+ * @retval None
+  **********************************************************/
+void Quadrature::CheckFastCalcStatus()
 {
-  return calcFastPulse;
-}
-
-//todo write comment header
-uint16_t Quadrature::GetPulsesPerSample()
-{
-  return pulsesPerSample;
-}
-
-//todo write comment header
-void Quadrature::ClearPulsesPerSample()
-{
-  pulsesPerSample = 0;
+  doFastPulseCalc = speed[0] > 130;
 }
 
 /******************************************************//**
  * @brief Calculates the current rotational speed of the device
- * in pulses per second using a range of samples over a microsecond
+ * in pulses per second (pps) using a range of samples over a microsecond
  * sampling period. The output of this calculation is smoothed with
  * a low pass filter to reduce jitter between pulses.
  * @param samples The number of samples, or pulses, in the sample period.
  * @param periodMicros The sample period in microseconds.
- * @retval None
+ * @retval The total computation time of the method in microseconds (us).
   **********************************************************/
-void Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicros)
+unsigned long Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicros)
 {
+  unsigned long startComputationTime = micros();
+
   /* Using a sample period of microseconds for relatively slow pulse speed, the resolution
    * remains high enough to use integer math instead of floating point operations to reduce
-   * calculation time. */
-  speedSample = samples / periodMicros;
+   * calculation time. Since speed is measured pps, it is necessary to scale the number of
+   * samples in the same way we scale microseconds to get an integer. So samples * 1^6. */
+  uint16_t speedSample = 1000000L * samples / periodMicros;
   speed[1] = speed[0];
+  //speedSampleTime[1] = speedSampleTime[0];
 
   /* The formula used for the filter is basic a formula for a discrete Infinite Impulse Response (IIR)
-   * low-pass filter (LPF), also known as a weighted moving average, being: y[i]= B∗x[i]+(1-B)∗y[i-1].
+   * low-pass fil ter (LPF), also known as a weighted moving average, being: y[i]= B∗x[i]+(1-B)∗y[i-1].
    * By using a fraction, B=5/8, we are able to simplify the equation and avoid using floating point arithmetic: 
    * y[i]= 5/8∗x[i]+(1-5/8)∗y[i-1] = 5/8∗x[i]+(3/8)∗y[i-1] = (5∗x[i]+3∗y[i-1])/8
    * This reduced computation time from ~82us to ~48us from the floating point solution */
   speed[0] = (5 * speedSample + 3 * speed[1]) / 8;
+  //speedSampleTime[0] = micros();
 
   /* Note: Tried a slightly improved low pass that averages the last two inputs instead of using only
    * the current input: y[i]=B(x[i]+x[i−1])/2 + (1−B)y[i−1], but this proved to smooth the results
    * more than desired, even when adjusting B to weight the samples more. */
-}
 
-/******************************************************//**
- * @brief  Getter method for the last time the position changed
- * in microseconds
- * @param  None
- * @retval The last time the position changed in microseconds
-  **********************************************************/
-unsigned long Quadrature::GetLastPositionTime()
-{
-  return lastPositionTime;
+   return micros() - startComputationTime;
 }
 
 //todo write function header or get rid of function call -> prob don't need it anymore since update speed is exposed now
 void Quadrature::CheckSpeedTimeout()
 {
-  if (micros() - instancePtr->GetLastPositionTime() > 500000) //todo don't forget to handle overflow for micros()
-  {
-    //UpdateSpeed(0, 250000); ??
-    speed[0] = 0;
-  }
+  
+  
+  
+  //if (speed[0] > 30)
+  //{
+    if (micros() - lastPositionTime > 1000000  ) // 1ms //for this use acceleration to predict what the next value should be or time out
+    {
+      UpdateSpeed(0, 1);
+    }
+  //}
+  // else
+  // {
+  //   if (micros() - lastPositionTime > 1000000) //todo don't forget to handle overflow for micros()
+  //   {
+  //     speed[1] = speed[0];
+  //     speed[0] = 0;
+  //   }
+  // }
+  
+}
+
+//todo write fn header and point out why not static
+void Quadrature::IsrStepClockHandler()
+{
+    if (doFastPulseCalc)
+    {
+      UpdateSpeed((uint32_t)(pulsesPerSample), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
+    }
+    else
+    {
+      CheckSpeedTimeout();
+    }
+
+    pulsesPerSample = 0;
+    CheckFastCalcStatus();
 }
 
 /******************************************************//**
@@ -302,21 +337,7 @@ ISR(TIMER2_COMPA_vect)
   class Quadrature* instancePtr = Quadrature::GetInstancePtr();
   if (instancePtr)
   {
-    //instancePtr->CheckSpeedTimeout(); //todo don't forget to check for 0 timeout when in slow pulse mode
-    if (instancePtr->GetFastCalcStatus())
-    {
-      unsigned long start = micros();
-      instancePtr->UpdateSpeed(1000000L * (uint32_t)(instancePtr->GetPulsesPerSample()), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
-      instancePtr->ClearPulsesPerSample();
-      instancePtr->compTime = micros() - start;
-    } //this works much better with the filter -> maybe set a mode to select between fast, slow, or auto speed calculation?
-    // also must figure out the change of direction when calculating speed with this method. Also see if I can speed up the calc any faster? Can do this later... might fix 
-
-    // todo in here we can check the velocity to see if we should switch between high speed vs low speed instead of setting the flag from the single pulse interrupt
-    // when switching to high speed timing (threshold probably > 124pps?), will have to reset the timer to 0 so we get a full sample since we are at a fixed sample rate
-    // look into nyquist theory for sampling when determining the threshold?
+    instancePtr->IsrStepClockHandler();
   }
-
-  //Quadrature::tmp++;
 }
 

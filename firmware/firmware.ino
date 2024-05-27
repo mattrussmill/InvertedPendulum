@@ -11,6 +11,7 @@ Quadrature quadrature;
 
 uint16_t position;
 int32_t velocity;
+int32_t acceleration;
 unsigned long tmp = millis();
   
 void setup()
@@ -39,6 +40,7 @@ void setup()
 
   position = quadrature.GetCurrentPosition();
   velocity = quadrature.GetCurrentVelocity();
+  acceleration = quadrature.GetCurrentAcceleration();
 
 
 // TODO check if polarity is backwards - Change step mode to full step mode
@@ -61,16 +63,17 @@ void setup()
 void loop()
 {
 
-  if ( velocity != quadrature.GetCurrentVelocity())
+  if (velocity != quadrature.GetCurrentVelocity())
   {
     position = quadrature.GetCurrentPosition();
     velocity = quadrature.GetCurrentVelocity();
-    Serial.print("us:");
-    Serial.print(Quadrature::compTime);
-    Serial.print("\tpos: ");
+    acceleration = quadrature.GetCurrentAcceleration();
+    Serial.print("pos: ");
     Serial.print(position);
     Serial.print("\tvel:");
-    Serial.println(velocity);
+    Serial.print(velocity);
+    Serial.print("\tacc:");
+    Serial.println(acceleration);
     
   }
 
