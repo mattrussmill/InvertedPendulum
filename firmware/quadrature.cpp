@@ -30,8 +30,6 @@ void Quadrature::Begin(uint16_t ppr)
   directionVector = 0;
   speed[0] = 0;
   speed[1] = 0;
-  //speedSampleTime[0] = micros();
-  //speedSampleTime[1] = speedSampleTime[0];
   doFastPulseCalc = false;
 
   pinMode(Quadrature_Lead_Pulse_CW_Pin, INPUT_PULLUP);
@@ -89,12 +87,12 @@ int16_t Quadrature::GetCurrentPosition()
  **********************************************************/
 int32_t Quadrature::GetCurrentVelocity()
 {
-  return (uint32_t)speed[0] * directionVector;
+  return (int32_t)speed[0] * directionVector;
 }
 
 int32_t Quadrature::GetCurrentAcceleration()
 {
-  return 1;
+  return acceleration;
 }
 
 /******************************************************//**
@@ -191,7 +189,7 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
   /* update the position based on the most recent pulse direction 
    * and account for rollover of the number of pulses from the home
    * position of 0 to ppr - 1 */
-  int16_t newPosition = position + directionVector;
+  int16_t newPosition = position + direction;
   if (newPosition < 0)
   {
     position = pulsesPerRotation - 1;
@@ -210,12 +208,11 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
    * CheckFastCalcStatus comment for more detail */
   if (!doFastPulseCalc)
   {
-    /* since only 1 pulse is counted, accounting for the computation time of the LPF aids 
+    UpdateDirection(direction);
+
+    /* since only 1 pulse is counted, accounting for the computation time of the LPF which aids 
      * in accuracy of the speed calculation*/
     lastPositionTime = micros() - UpdateSpeed(1L, micros() - lastPositionTime);
-
-    /* update the direction of the newest pulse */ 
-    directionVector = direction;
   }
   else
   {
@@ -225,10 +222,23 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
 }
 
 /******************************************************//**
+ * @brief  Update the direction member variable for if the most
+ * recent input is CCW (+) or CW (-). Sets a flag, directionChanged,
+ * if the direction was reversed on the most recent update
+ * @param  newDirection The direction in which the encoder has turned.
+ * @retval None
+ **********************************************************/
+void Quadrature::UpdateDirection(int8_t newDirection)
+{
+  newDirection != directionVector? directionChanged = true : directionChanged = false;
+  directionVector = newDirection;
+}
+
+/******************************************************//**
  * @brief  Gets the pointer to the Quadrature instance
  * @param  None
  * @retval Pointer to the instance of Quadrature
-  **********************************************************/
+ **********************************************************/
 class Quadrature* Quadrature::GetInstancePtr(void)
 {
   return (class Quadrature*)instancePtr;
@@ -269,21 +279,36 @@ unsigned long Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicr
    * samples in the same way we scale microseconds to get an integer. So samples * 1^6. */
   uint16_t speedSample = 1000000L * samples / periodMicros;
   speed[1] = speed[0];
-  //speedSampleTime[1] = speedSampleTime[0];
 
   /* The formula used for the filter is basic a formula for a discrete Infinite Impulse Response (IIR)
    * low-pass fil ter (LPF), also known as a weighted moving average, being: y[i]= B∗x[i]+(1-B)∗y[i-1].
    * By using a fraction, B=5/8, we are able to simplify the equation and avoid using floating point arithmetic: 
-   * y[i]= 5/8∗x[i]+(1-5/8)∗y[i-1] = 5/8∗x[i]+(3/8)∗y[i-1] = (5∗x[i]+3∗y[i-1])/8
+   * y[i]= 1/4∗x[i]+(1-1/4)∗y[i-1] = 1/4∗x[i]+(3/4)∗y[i-1] = (1∗x[i]+3∗y[i-1])/4
    * This reduced computation time from ~82us to ~48us from the floating point solution */
-  speed[0] = (5 * speedSample + 3 * speed[1]) / 8;
-  //speedSampleTime[0] = micros();
+  if (!directionChanged)
+  {
+    speed[0] = (speedSample + 3 * speed[1]) / 4;
+  }
+  /* On direction changes, reverse the LPF bias to favor the new sample so the speed change is more accurate */
+  else
+  {
+    speed[0] = (3 * speedSample + speed[1]) / 4;
+  }
 
   /* Note: Tried a slightly improved low pass that averages the last two inputs instead of using only
    * the current input: y[i]=B(x[i]+x[i−1])/2 + (1−B)y[i−1], but this proved to smooth the results
    * more than desired, even when adjusting B to weight the samples more. */
 
    return micros() - startComputationTime;
+}
+
+unsigned long Quadrature::UpdateAcceleration(unsigned long periodMicros)
+{
+  unsigned long startComputationTime = micros();
+
+  //acceleration = ( (int32_t)speed[0] * directionVector[0] - (int32_t)speed[1] * directionVector[1] ) * 1000000L / periodMicros ;
+
+  return micros() - startComputationTime;
 }
 
 //todo write function header or get rid of function call -> prob don't need it anymore since update speed is exposed now
@@ -315,12 +340,12 @@ void Quadrature::IsrStepClockHandler()
 {
     if (doFastPulseCalc)
     {
+      UpdateDirection(pulsesPerSample > 0 ? 1 : -1);
       UpdateSpeed((uint32_t) abs(pulsesPerSample), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
-      directionVector = pulsesPerSample > 0 ? 1 : -1;
     }
     else
     {
-      CheckSpeedTimeout();
+      //CheckSpeedTimeout();
     }
 
     pulsesPerSample = 0;
