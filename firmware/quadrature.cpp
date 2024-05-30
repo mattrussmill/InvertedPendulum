@@ -14,6 +14,9 @@
 #include "Quadrature.h"
 #include <Arduino.h>
 
+#define Fast_Calc_Threshold   130
+#define Isr_Sample_Period_Us  16225
+
 /// static member definitions
 class Quadrature* Quadrature::instancePtr = NULL;
 
@@ -83,16 +86,11 @@ int16_t Quadrature::GetCurrentPosition()
  * device in pulses per second (pps). Direction is indicated
  * by sign where CCW is + and CW is -
  * @param  None
- * @retval TODO
+ * @retval the current rotational velocity in pps
  **********************************************************/
 int32_t Quadrature::GetCurrentVelocity()
 {
   return (int32_t)speed[0] * directionVector;
-}
-
-int32_t Quadrature::GetCurrentAcceleration()
-{
-  return acceleration;
 }
 
 /******************************************************//**
@@ -213,6 +211,7 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
     /* since only 1 pulse is counted, accounting for the computation time of the LPF which aids 
      * in accuracy of the speed calculation*/
     lastPositionTime = micros() - UpdateSpeed(1L, micros() - lastPositionTime);
+    
   }
   else
   {
@@ -223,14 +222,14 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
 
 /******************************************************//**
  * @brief  Update the direction member variable for if the most
- * recent input is CCW (+) or CW (-). Sets a flag, directionChanged,
+ * recent input is CCW (+) or CW (-). Sets a flag, reverseLpfBias,
  * if the direction was reversed on the most recent update
  * @param  newDirection The direction in which the encoder has turned.
  * @retval None
  **********************************************************/
 void Quadrature::UpdateDirection(int8_t newDirection)
 {
-  newDirection != directionVector? directionChanged = true : directionChanged = false;
+  newDirection != directionVector? reverseLpfBias = true : reverseLpfBias = false;
   directionVector = newDirection;
 }
 
@@ -257,7 +256,7 @@ class Quadrature* Quadrature::GetInstancePtr(void)
   **********************************************************/
 void Quadrature::CheckFastCalcStatus()
 {
-  doFastPulseCalc = speed[0] > 130;
+  doFastPulseCalc = speed[0] > Fast_Calc_Threshold;
 }
 
 /******************************************************//**
@@ -282,14 +281,14 @@ unsigned long Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicr
 
   /* The formula used for the filter is basic a formula for a discrete Infinite Impulse Response (IIR)
    * low-pass fil ter (LPF), also known as a weighted moving average, being: y[i]= B∗x[i]+(1-B)∗y[i-1].
-   * By using a fraction, B=5/8, we are able to simplify the equation and avoid using floating point arithmetic: 
-   * y[i]= 1/4∗x[i]+(1-1/4)∗y[i-1] = 1/4∗x[i]+(3/4)∗y[i-1] = (1∗x[i]+3∗y[i-1])/4
+   * By using a fraction, B=3/8, we are able to simplify the equation and avoid using floating point arithmetic: 
+   * y[i]= 3/8∗x[i]+(1-3/8)∗y[i-1] = 3/8∗x[i]+(5/8)∗y[i-1] = (3∗x[i]+5∗y[i-1])/8
    * This reduced computation time from ~82us to ~48us from the floating point solution */
-  if (!directionChanged)
+  if (!reverseLpfBias)
   {
-    speed[0] = (speedSample + 3 * speed[1]) / 4;
+    speed[0] = (3 * speedSample + 5 * speed[1]) / 8;
   }
-  /* On direction changes, reverse the LPF bias to favor the new sample so the speed change is more accurate */
+  /* On direction changes, reverse the LPF bias to favor the new sample so the speed change is more accurate @ B=3/4 */
   else
   {
     speed[0] = (3 * speedSample + speed[1]) / 4;
@@ -302,50 +301,45 @@ unsigned long Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicr
    return micros() - startComputationTime;
 }
 
-unsigned long Quadrature::UpdateAcceleration(unsigned long periodMicros)
-{
-  unsigned long startComputationTime = micros();
-
-  //acceleration = ( (int32_t)speed[0] * directionVector[0] - (int32_t)speed[1] * directionVector[1] ) * 1000000L / periodMicros ;
-
-  return micros() - startComputationTime;
-}
-
-//todo write function header or get rid of function call -> prob don't need it anymore since update speed is exposed now
+/******************************************************//**
+ * @brief  To be called by the IsrStepClockHandler, this method
+ * performs the timeout check for when the quadrature has stopped
+ * moving and sets the current speed to zero. The timeout period
+ * scales from half of the Isr_Sample_Period_Us period half the
+ * period times the Fast_Calc_Threshold. It scales so that the
+ * slower the rotational velocity, the longer the timeout duration.
+ * @param  None
+ * @retval None
+ **********************************************************/
 void Quadrature::CheckSpeedTimeout()
 {
-  
-  
-  
-  //if (speed[0] > 30)
-  //{
-    if (micros() - lastPositionTime > 1000000  ) // 1ms //for this use acceleration to predict what the next value should be or time out
-    {
-      UpdateSpeed(0, 1);
-    }
-  //}
-  // else
-  // {
-  //   if (micros() - lastPositionTime > 1000000) //todo don't forget to handle overflow for micros()
-  //   {
-  //     speed[1] = speed[0];
-  //     speed[0] = 0;
-  //   }
-  // }
-  
+  if (micros() - lastPositionTime > (Fast_Calc_Threshold - (uint32_t)speed[0]) * Isr_Sample_Period_Us / 2 ) {
+    speed[1] = speed[0];
+    speed[0] = 0;
+  }
 }
 
-//todo write fn header and point out why not static
+/******************************************************//**
+ * @brief  The ISR handling function. When the pulse rate exceeds
+ * the Fast_Calc_Threshold in pps, this method is used to calculate
+ * the rotational velocity of the quadrature. The sample rate is
+ * set in InitIsrIntervalForTimer2. This handler also periodically
+ * checks the timeout for setting the velocity to zero if the velocity
+ * is below the Fast_Calc_Threshold. It also controls switching between
+ * pulse counting and pulse timing to determine the current speed.
+ * @param  None
+ * @retval None
+ **********************************************************/
 void Quadrature::IsrStepClockHandler()
 {
     if (doFastPulseCalc)
     {
       UpdateDirection(pulsesPerSample > 0 ? 1 : -1);
-      UpdateSpeed((uint32_t) abs(pulsesPerSample), 16255); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
+      UpdateSpeed((uint32_t) abs(pulsesPerSample), Isr_Sample_Period_Us); // 16255us is the timer frequency set for TIMER2_COMPA_vect in InitIsrIntervalForTimer2
     }
     else
     {
-      //CheckSpeedTimeout();
+      CheckSpeedTimeout();
     }
 
     pulsesPerSample = 0;
@@ -353,9 +347,13 @@ void Quadrature::IsrStepClockHandler()
 }
 
 /******************************************************//**
- * @brief Timer2 interrupt handler used by PW2 for shield 1 //TODO used for speed and accel cleanup?
- * and enable the power bridge - only using shield 0 (Timer1) in l6474 library. Timer 1 is open for the encoder. - starts on page 74 in datasheet. Likely have to take this out of waveform generation mode from the motor, if already claimed. Arduino uses timer0 for milis() and other functions.
- * @param  None
+ * @brief  The Interrupt Service Routine (ISR) which occurs periodically
+ * based on the configuration of Timer 2 of the AtMega328P if the
+ * non-static members of the class are initialized. See
+ * InitIsrIntervalForTimer2 for configuration of the timer.
+ * @param  TIMER2_COMPA_vect interrupt handler which is called
+ * when the timer/counter2(TCNT2) and compare register(OCR2A) becomes 
+ * the same value
  * @retval None
  **********************************************************/
 ISR(TIMER2_COMPA_vect)

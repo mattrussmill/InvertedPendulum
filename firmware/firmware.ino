@@ -40,7 +40,6 @@ void setup()
 
   position = quadrature.GetCurrentPosition();
   velocity = quadrature.GetCurrentVelocity();
-  acceleration = quadrature.GetCurrentAcceleration();
 
 
 // TODO check if polarity is backwards - Change step mode to full step mode
@@ -67,13 +66,10 @@ void loop()
   {
     position = quadrature.GetCurrentPosition();
     velocity = quadrature.GetCurrentVelocity();
-    acceleration = quadrature.GetCurrentAcceleration();
     // Serial.print("pos: ");
     // Serial.print(position);
     Serial.print("vel:");
-    Serial.print(velocity);
-    Serial.print("\t\tacc:");
-    Serial.println(acceleration);
+    Serial.println(velocity);
     
   }
 

@@ -36,7 +36,6 @@ class Quadrature
     uint16_t GetPulsesPerRotation();  //Return the number of pulses in one rotation of the quadrature
     int16_t GetCurrentPosition();     //Return the current position in pulses between 0 and ppr
     int32_t GetCurrentVelocity();     //Return the current velocity in pps (CCW is + / CW is -)
-    int32_t GetCurrentAcceleration(); //Return the acceleration in pps^2
 
     // these methods are for use in the ISR only
     static class Quadrature *GetInstancePtr();  //pointer to access methods in ISR on a clock step
@@ -57,12 +56,8 @@ class Quadrature
     uint16_t pulsesPerRotation;                 //Number of pulses in one rotation of the quadrature
     volatile int16_t position;                  //Position of the quadrature in pulses from 0 to ppr-1
     volatile uint16_t speed[2];                 //Filtered rotation speed in pulses per second (pps)
-    volatile uint16_t speedSample;              //Raw rotation speed sample in pulses per second (pps)
-    //volatile unsigned long speedSampleTime[2];  //Timestamp in us when the speed samples were calculated
     volatile int8_t directionVector;            //The direction of the current and previous rotation (CCW is + / CW is -)
-    volatile bool directionChanged;             //Flag for if the direction changed on the last update
-    volatile int32_t acceleration;
-    //uint16_t accelerationTop;
+    volatile bool reverseLpfBias;               //Flag to reverse the LPF bias weight from the previous value to the current value
     volatile unsigned long lastPositionTime;    //Timestamp the position was last updated in microseconds
     volatile int32_t pulsesPerSample;           //Pulse counter for when pulse counting is used to determine speed
     volatile bool doFastPulseCalc;              //Flag determines if speed is calculated via pulse counting (fast speeds) or pulse timing (slow speeds)
