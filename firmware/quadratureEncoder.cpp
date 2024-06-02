@@ -1,5 +1,5 @@
 /******************************************************//**
- * @file    quadrature.cpp
+ * @file    quadratureEncoder.cpp
  * @version V1.0
  * @date    May 21, 2024
  * @brief   AB two-phase quadrature optical encoder library for arduino 
@@ -11,38 +11,45 @@
  * published by the Free Software Foundation.
  **********************************************************/
 
-#include "Quadrature.h"
+#include "quadratureEncoder.h"
 #include <Arduino.h>
 
 #define Fast_Calc_Threshold   130
 #define Isr_Sample_Period_Us  16225
 
 /// static member definitions
-class Quadrature* Quadrature::instancePtr = NULL;
+class QuadratureEncoder* QuadratureEncoder::instancePtr = NULL;
 
 /******************************************************//**
- * @brief  Sets the ppr for the quadrature encoder device and
- * starts the Quadrature library
- * @param  None
+ * @brief  Constructor for the encoder object. Sets the pulses per
+ * rotation of the device and initializes necessary member variables
+ * to their appropriate starting values.
+ * @param  ppr Pulses per full rotation of the quadrature encoder
  * @retval None
  **********************************************************/
-void Quadrature::Begin(uint16_t ppr)
-{
-  pulsesPerRotation = ppr;
+QuadratureEncoder::QuadratureEncoder(uint16_t ppr) : pulsesPerRotation(ppr) {
   pulsesPerSample = 0;
   directionVector = 0;
   speed[0] = 0;
   speed[1] = 0;
   doFastPulseCalc = false;
+  instancePtr = this;
+}
 
+/******************************************************//**
+ * @brief  Initializes I/O and any interrupts needed for the
+ * encoder and starts the library. Cannot be done in constructor
+ * as ISR must be setup in an init function call.
+ * @param  None
+ * @retval None
+ **********************************************************/
+void QuadratureEncoder::Begin()
+{
   pinMode(Quadrature_Lead_Pulse_CW_Pin, INPUT_PULLUP);
   pinMode(Quadrature_Lead_Pulse_CCW_Pin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CW_Pin), PulseCW, RISING);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CCW_Pin), PulseCCW, RISING);
-  
-  instancePtr = this;
   InitIsrIntervalForTimer2();
-
   SetHomePosition();
   lastPositionTime = micros();
 }
@@ -54,7 +61,7 @@ void Quadrature::Begin(uint16_t ppr)
  * @param  None
  * @retval None
  **********************************************************/
-void Quadrature::SetHomePosition()
+void QuadratureEncoder::SetHomePosition()
 {
   position = 0;
 }
@@ -65,7 +72,7 @@ void Quadrature::SetHomePosition()
  * @param  None
  * @retval pulses per rotation member variable
  **********************************************************/
-uint16_t Quadrature::GetPulsesPerRotation()
+uint16_t QuadratureEncoder::GetPulsesPerRotation()
 {
   return pulsesPerRotation;
 }
@@ -76,7 +83,7 @@ uint16_t Quadrature::GetPulsesPerRotation()
  * @param  None
  * @retval position member variable
  **********************************************************/
-int16_t Quadrature::GetCurrentPosition()
+int16_t QuadratureEncoder::GetCurrentPosition()
 {
   return position;
 }
@@ -88,7 +95,7 @@ int16_t Quadrature::GetCurrentPosition()
  * @param  None
  * @retval the current rotational velocity in pps
  **********************************************************/
-int32_t Quadrature::GetCurrentVelocity()
+int32_t QuadratureEncoder::GetCurrentVelocity()
 {
   return (int32_t)speed[0] * directionVector;
 }
@@ -102,7 +109,7 @@ int32_t Quadrature::GetCurrentVelocity()
  * @param  None
  * @retval None
  **********************************************************/
-void Quadrature::InitIsrIntervalForTimer2()
+void QuadratureEncoder::InitIsrIntervalForTimer2()
 {
   /* Disable Timer2 interrupt by setting the special function register
    * for the Timer/Counter2 Interrupt Enable to 0 with the appropriate mask */
@@ -137,9 +144,9 @@ void Quadrature::InitIsrIntervalForTimer2()
  * @param  None
  * @retval None
  **********************************************************/
-void Quadrature::PulseCW()
+void QuadratureEncoder::PulseCW()
 {
-  class Quadrature* instancePtr = Quadrature::GetInstancePtr();
+  class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
     if (digitalRead(Quadrature_Lead_Pulse_CCW_Pin) == LOW)
@@ -159,9 +166,9 @@ void Quadrature::PulseCW()
  * @param  None
  * @retval None
  **********************************************************/
-void Quadrature::PulseCCW()
+void QuadratureEncoder::PulseCCW()
 {
-  class Quadrature* instancePtr = Quadrature::GetInstancePtr();
+  class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
     if (digitalRead(Quadrature_Lead_Pulse_CW_Pin) == LOW)
@@ -182,7 +189,7 @@ void Quadrature::PulseCCW()
  * @param  direction The direction in which the encoder has turned.
  * @retval None
  **********************************************************/
-void Quadrature::UpdatePosition(incrementPosition_t direction)
+void QuadratureEncoder::UpdatePosition(incrementPosition_t direction)
 {
   /* update the position based on the most recent pulse direction 
    * and account for rollover of the number of pulses from the home
@@ -227,7 +234,7 @@ void Quadrature::UpdatePosition(incrementPosition_t direction)
  * @param  newDirection The direction in which the encoder has turned.
  * @retval None
  **********************************************************/
-void Quadrature::UpdateDirection(int8_t newDirection)
+void QuadratureEncoder::UpdateDirection(int8_t newDirection)
 {
   newDirection != directionVector? reverseLpfBias = true : reverseLpfBias = false;
   directionVector = newDirection;
@@ -238,9 +245,9 @@ void Quadrature::UpdateDirection(int8_t newDirection)
  * @param  None
  * @retval Pointer to the instance of Quadrature
  **********************************************************/
-class Quadrature* Quadrature::GetInstancePtr(void)
+class QuadratureEncoder* QuadratureEncoder::GetInstancePtr(void)
 {
-  return (class Quadrature*)instancePtr;
+  return (class QuadratureEncoder*)instancePtr;
 }
 
 /******************************************************//**
@@ -254,7 +261,7 @@ class Quadrature* Quadrature::GetInstancePtr(void)
  * @param  None
  * @retval None
   **********************************************************/
-void Quadrature::CheckFastCalcStatus()
+void QuadratureEncoder::CheckFastCalcStatus()
 {
   doFastPulseCalc = speed[0] > Fast_Calc_Threshold;
 }
@@ -268,7 +275,7 @@ void Quadrature::CheckFastCalcStatus()
  * @param periodMicros The sample period in microseconds.
  * @retval The total computation time of the method in microseconds (us).
   **********************************************************/
-unsigned long Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicros)
+unsigned long QuadratureEncoder::UpdateSpeed(uint32_t samples, unsigned long periodMicros)
 {
   unsigned long startComputationTime = micros();
 
@@ -311,7 +318,7 @@ unsigned long Quadrature::UpdateSpeed(uint32_t samples, unsigned long periodMicr
  * @param  None
  * @retval None
  **********************************************************/
-void Quadrature::CheckSpeedTimeout()
+void QuadratureEncoder::CheckSpeedTimeout()
 {
   if (micros() - lastPositionTime > (Fast_Calc_Threshold - (uint32_t)speed[0]) * Isr_Sample_Period_Us / 2 ) {
     speed[1] = speed[0];
@@ -330,7 +337,7 @@ void Quadrature::CheckSpeedTimeout()
  * @param  None
  * @retval None
  **********************************************************/
-void Quadrature::IsrStepClockHandler()
+void QuadratureEncoder::IsrStepClockHandler()
 {
     if (doFastPulseCalc)
     {
@@ -358,7 +365,7 @@ void Quadrature::IsrStepClockHandler()
  **********************************************************/
 ISR(TIMER2_COMPA_vect)
 {
-  class Quadrature* instancePtr = Quadrature::GetInstancePtr();
+  class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
     instancePtr->IsrStepClockHandler();
