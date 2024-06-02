@@ -4,6 +4,7 @@
  * @date    March 3, 2014
  * @brief   Header for L6474 library for arduino 
  * @author  https://github.com/MotorDriver/L6474
+ *          (modified by Matthew R. Miller)
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of either the GNU General Public License version 2
@@ -443,23 +444,25 @@ class L6474 {
     void SetHome(uint8_t shieldId);                          //Set current position to be the home position
     void SetMark(uint8_t shieldId);                          //Set current position to be the Markposition
     bool SetMaxSpeed(uint8_t shieldId,uint16_t newMaxSpeed); //Set the max speed in pps
-    bool SetMinSpeed(uint8_t shieldId,uint16_t newMinSpeed); //Set the min speed in pps   
+    bool SetMinSpeed(uint8_t shieldId,uint16_t newMinSpeed); //Set the min speed in pps
     bool SoftStop(uint8_t shieldId);                         //Progressively stops the motor 
     void WaitWhileActive(uint8_t shieldId);                  //Wait for the shield state becomes Inactive
     ///@}
     
     /// @defgroup group2 L6474 control functions
     ///@{
+    void SetHoldPositionOnStop(bool holdPosition);  //Set flag to hold position when Inactive  
     void CmdDisable(uint8_t shieldId);              //Send the L6474_DISABLE command
     void CmdEnable(uint8_t shieldId);               //Send the L6474_ENABLE command
     uint32_t CmdGetParam(uint8_t shieldId,          //Send the L6474_GET_PARAM command
                                  L6474_Registers_t param);
-    uint16_t CmdGetStatus(uint8_t shieldId);        // Send the L6474_GET_STATUS command
+    uint16_t CmdGetStatus(uint8_t shieldId);        //Send the L6474_GET_STATUS command
     void CmdNop(uint8_t shieldId);                  //Send the L6474_NOP command
     void CmdSetParam(uint8_t shieldId,              //Send the L6474_SET_PARAM command
                              L6474_Registers_t param,       
                              uint32_t value);
-    uint16_t ReadStatusRegister(uint8_t shieldId);  // Read the L6474_STATUS register without
+    uint8_t ConvertCurrentToTval(double mA);        //Converts mA in compatible values for TVAL register
+    uint16_t ReadStatusRegister(uint8_t shieldId);  //Read the L6474_STATUS register without
                                                     // clearing the flags
     void Reset(void);                               //Set the L6474 reset pin 
     void ReleaseReset(void);                        //Release the L6474 reset pin 
@@ -506,7 +509,8 @@ class L6474 {
     uint8_t Tval_Current_to_Par(double Tval);
     uint8_t Tmin_Time_to_Par(double Tmin);
     
-    // variable members        
+    // variable members
+    bool holdPosOnInactive;
     shieldParams_t shieldPrm[MAX_NUMBER_OF_SHIELDS];
     static volatile class L6474 *instancePtr;
     static volatile void(*flagInterruptCallback)(void);

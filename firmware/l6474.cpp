@@ -4,6 +4,7 @@
  * @date    March 3, 2014
  * @brief   L6474 library for arduino 
  * @author  https://github.com/MotorDriver/L6474
+ *          (modified by Matthew R. Miller)
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of either the GNU General Public License version 2
@@ -43,7 +44,8 @@ L6474::L6474()
     shieldPrm[i].commandExecuted = NO_CMD;
     shieldPrm[i].stepsToTake = MAX_STEPS;
   }
-    instancePtr = this;
+  instancePtr = this;
+  holdPosOnInactive = false;
 }
 
 /******************************************************//**
@@ -516,13 +518,28 @@ void L6474::WaitWhileActive(uint8_t shieldId)
 }
 
 /******************************************************//**
+ * @brief  Set flag which determines if the power bridge should remain enabled
+ * when movement has ended (INACTIVE). If true, the CmdDisable will be ignored
+ * which will keep the last position of the motor energized.
+ * @param[in] holdPosition
+ * @retval None
+ **********************************************************/
+void L6474::SetHoldPositionOnStop(bool holdPosition)
+{
+  holdPosOnInactive = holdPosition;
+}
+
+/******************************************************//**
  * @brief  Issue the Disable command to the L6474 of the specified shield
  * @param[in] shieldId (from 0 to 2)
  * @retval None
  **********************************************************/
 void L6474::CmdDisable(uint8_t shieldId)
 {
-  SendCommand(shieldId, L6474_DISABLE);
+  if (!holdPosOnInactive)
+  {
+    SendCommand(shieldId, L6474_DISABLE);
+  }
 }
 
 /******************************************************//**
@@ -609,6 +626,17 @@ uint32_t L6474::CmdGetParam(uint8_t shieldId, L6474_Registers_t param)
   interrupts();
     
   return (spiRxData);
+}
+
+/******************************************************//**
+ * @brief Converts mA in compatible values for TVAL register
+ * for use with CmdSetParam(n, L6474_TVAL, ConvertCurrentToTval(mA))
+ * @param[in] mA
+ * @retval TVAL values
+ **********************************************************/
+uint8_t L6474::ConvertCurrentToTval(double mA)
+{
+  return Tval_Current_to_Par(mA);
 }
 
 /******************************************************//**
