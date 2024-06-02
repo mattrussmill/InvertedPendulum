@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include <SPI.h>
-#include "l6474.h"
-#include "quadrature.h"
+#include "stepperMotor.h"
+#include "quadratureEncoder.h"
 
 #define ENCODER_CW_PIN 2  // Green wire
 #define ENCODER_CCW_PIN 3 // White wire
 
-L6474 L6474shield;
-Quadrature quadrature;
+StepperMotor stepperMotor(1.8f, STEP_HALF);
+QuadratureEncoder quadrature(360);
 
 uint16_t position;
 int32_t velocity;
@@ -18,81 +18,63 @@ void setup()
 {
 
 //----- Init
-  /* Start the library to use one shield. The L6474 registers are set with the predefined
-   * values from file l6474_target_config.h. This initialization step occupies the following
-   * pins on the Arduino Uno defined in l6474.h: 7, 8, 9 and 2 (pin 2 we will reclaim)*/
-  L6474shield.Begin(1);
 
-  /* Detatch the interrupt from the L6474.Begin() init function. Only two interrupts are 
-   * available on the Arduino Uno and we will need them both for the encoder. */
-  detachInterrupt(2);
 
-  /* As per section 6.17 in hte L6474 datasheet - mask the FLAG conditions to keep the FLAG
-   * pin from being pulled to ground through an open drain transistor. This will keep the 
-   * interrupt on pin 2 open for use with the encoder and not create a pulse with an error
-   * condition. */
-  L6474shield.CmdSetParam(0, L6474_ALARM_EN, 0x0);
+  stepperMotor.Begin();
+
+
+
 
   /* Start the library to use the quadrature encoder. This library is configured to only support
    * one encoder per application. The quadrature initialization step occupies the following pins
-   * on the Arduino Uno defined in quadrature.h: 2 and 3. */
-  quadrature.Begin(360);
+   * on the Arduino Uno defined in quadratureEncoder.h: 2 and 3. */
+  quadrature.Begin();
 
-  position = quadrature.GetCurrentPosition();
-  velocity = quadrature.GetCurrentVelocity();
+  // position = quadrature.GetCurrentPosition();
+  // velocity = quadrature.GetCurrentVelocity();
 
 
 // TODO check if polarity is backwards - Change step mode to full step mode
 
-  /* Select full step mode for shield 0 */
-  L6474shield.SelectStepMode(0, L6474_STEP_SEL_1);  
 
-  /* Update speed, acceleration, deceleration for 1/16 microstepping mode*/
-  // L6474shield.SetMaxSpeed(0, 100);
-  // L6474shield.SetMinSpeed(0, 99);
-  // L6474shield.SetAcceleration(0, 10000);
-  // L6474shield.SetDeceleration(0, 10000);
+  // L6474shield.SetMaxSpeed(0,31);
+  // L6474shield.SetMinSpeed(0,31);
+  // L6474shield.SetAcceleration(0,20000);
+  // L6474shield.SetDeceleration(0,20000);  
   
-  //L6474shield.Run(0, BACKWARD);
+  // // set speed after moving starts on Run? Weird...
+  // //L6474shield.Run(0, BACKWARD);
+  // //L6474shield.SetMaxSpeed(0,1600);
+
+  // L6474shield.GoTo(0,0);
+  //L6474shield.CmdEnable(0); //how to hold position -> add functions to hold position on stop
+  //L6474shield.GoTo(0,0);
   Serial.begin(9600);
 
+  //TODO list:
+  // modify the shield code to have AndStop methods or toggle 
+  // write HAL objects to abstract away the BSPs
+  // CAD enclosure / stand with power button
   
 }
 
 void loop()
 {
 
-  if (velocity != quadrature.GetCurrentVelocity())
-  {
-    position = quadrature.GetCurrentPosition();
-    velocity = quadrature.GetCurrentVelocity();
-    // Serial.print("pos: ");
-    // Serial.print(position);
-    Serial.print("vel:");
-    Serial.println(velocity);
-    
-  }
+  // /* Request shield 0 to go position -6400 */
+  // L6474shield.GoTo(0,-6400);
 
-//test the frequency
-  // if (millis() - tmp >= 1000) {
-  //   Serial.println(Quadrature::tmp);
-  //   Quadrature::tmp = 0;
-  //   tmp = millis();
-  // }
-  
-// TODO figure out why motor not working right - check wires are right configuration
-
-  // L6474shield.Move(0, BACKWARD, 200); //ccw
-  // Serial.print(L6474shield.GetCurrentSpeed(0));
-  // Serial.print("\t");
-  // Serial.println(quadrature.GetCurrentVelocity());
+  // /* Wait for the motor of shield 0 ends moving */
   // L6474shield.WaitWhileActive(0);
+  // //L6474shield.CmdEnable(0); //how to hold position
+  // delay(2000);
 
+  // /* Request shield 0 to go position 6400 */
+  // L6474shield.GoTo(0,6399);
 
-  //delay(1000);
-  // L6474shield.Move(0, FORWARD, 200);
-  // L6474shield.WaitWhileActive(0);
-  // delay(1000);
+  // /* Wait for the motor of shield 0 ends moving */
+  // L6474shield.WaitWhileActive(0); 
 
+  // delay(2000);
 
 }
