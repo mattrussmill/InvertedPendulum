@@ -2,10 +2,13 @@
  * @file    stepperMotor.h 
  * @version V1.0
  * @date    June 2, 2024
- * @brief   TODO
+ * @brief   Motor controller driver abstraction layer library
  * @author  Matthew R. Miller
  *
- * TODO Drivers for one stepper motor
+ * This file is free software; you can redistribute it and/or modify
+ * it under the terms of either the GNU General Public License version 2
+ * or the GNU Lesser General Public License version 2.1, both as
+ * published by the Free Software Foundation.
  **********************************************************/
 
 #include "stepperMotor.h"
