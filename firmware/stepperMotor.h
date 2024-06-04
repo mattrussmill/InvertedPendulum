@@ -14,7 +14,6 @@
 #ifndef __STEPPER_MOTOR_H_INCLUDED
 #define __STEPPER_MOTOR_H_INCLUDED
 
-#include <inttypes.h>
 #include "l6474.h"
 
 /// Step mode options for stepper motor
@@ -35,8 +34,8 @@ typedef enum {
 class StepperMotor
 {
   public:
-    StepperMotor(float stepAngleDeg, stepMode_t stepMode);  //Start the StepperMotor library
-    Begin();
+    StepperMotor(float stepAngleDeg, stepMode_t stepMode);//Constructor for the StepperMotor
+    Begin();                                              //Start the StepperMotor library
 
     float GetAccelerationRad();                           //Return the acceleration in radians/s^2
     float GetAccelerationDeg();                           //Return the acceleration in degrees/s^2
@@ -52,6 +51,9 @@ class StepperMotor
 
     float GetDecelerationRad();                           //Return the deceleration in radians/s^2
     float GetDecelerationDeg();                           //Return the deceleration in degrees/s^2
+
+    float GetAbsolutePositionRad();                       //Return the absolute position from home in radians
+    float GetAbsolutePositionDeg();                       //Return the absolute position from home in degrees
 
     bool SetAccelerationRad(float newAcceleration);       //Set the acceleration in radians/s^2
     bool SetAccelerationDeg(float newAcceleration);       //Set the acceleration in degrees/s^2
@@ -84,8 +86,6 @@ class StepperMotor
     stepMode_t stepMode;
     float stepAngleRadian;
     float stepAngleDegree;
-
-
 };
 
 

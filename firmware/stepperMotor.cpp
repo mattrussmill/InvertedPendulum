@@ -185,6 +185,28 @@ float StepperMotor::GetDecelerationDeg()
 }
 
 /******************************************************//**
+ * @brief  Returns the absolute position of the stepper motor
+ * in radians
+ * @param  None
+ * @retval Absolute position from home in radians
+ **********************************************************/
+float StepperMotor::GetAbsolutePositionRad()
+{
+  return (float)L6474shield.GetPosition(0) * stepAngleRadian;
+}
+
+/******************************************************//**
+ * @brief  Returns the absolute position of the stepper motor
+ * in degrees
+ * @param  None
+ * @retval Absolute position from home in degrees
+ **********************************************************/
+float StepperMotor::GetAbsolutePositionDeg()
+{
+  return (float)L6474shield.GetPosition(0) * stepAngleDegree;
+}
+
+/******************************************************//**
  * @brief  Changes the acceleration of the stepper motor
  * @param newAcceleration New acceleration to apply in radians/s^2
  * @retval true if the command is successfully executed, else false
