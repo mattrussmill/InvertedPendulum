@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "stepperMotor.h"
-#include "quadratureEncoder.h"
+#include "pendulum.h"
 
 #define ENCODER_CW_PIN 2  // Green wire
 #define ENCODER_CCW_PIN 3 // White wire
 
 StepperMotor stepperMotor(1.8f, STEP_HALF);
-QuadratureEncoder quadrature(360);
+Pendulum pendulum(360);
 
 int32_t position = 0;
 int32_t velocity;
@@ -28,7 +28,7 @@ void setup()
   /* Start the library to use the quadrature encoder. This library is configured to only support
    * one encoder per application. The quadrature initialization step occupies the following pins
    * on the Arduino Uno defined in quadratureEncoder.h: 2 and 3. */
-  quadrature.Begin();
+  pendulum.Begin();
   // position = quadrature.GetCurrentPosition();
   // velocity = quadrature.GetCurrentVelocity();
 

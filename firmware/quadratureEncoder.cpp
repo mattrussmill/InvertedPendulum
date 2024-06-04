@@ -24,10 +24,11 @@ class QuadratureEncoder* QuadratureEncoder::instancePtr = NULL;
  * @brief  Constructor for the encoder object. Sets the pulses per
  * rotation of the device and initializes necessary member variables
  * to their appropriate starting values.
- * @param  ppr Pulses per full rotation of the quadrature encoder
+ * @param  None
  * @retval None
  **********************************************************/
-QuadratureEncoder::QuadratureEncoder(uint16_t ppr) : pulsesPerRotation(ppr) {
+QuadratureEncoder::QuadratureEncoder()
+{
   pulsesPerSample = 0;
   directionVector = 0;
   speed[0] = 0;
@@ -40,11 +41,12 @@ QuadratureEncoder::QuadratureEncoder(uint16_t ppr) : pulsesPerRotation(ppr) {
  * @brief  Initializes I/O and any interrupts needed for the
  * encoder and starts the library. Cannot be done in constructor
  * as ISR must be setup in an init function call.
- * @param  None
+ * @param  ppr Pulses per full rotation of the quadrature encoder
  * @retval None
  **********************************************************/
-void QuadratureEncoder::Begin()
+void QuadratureEncoder::Begin(uint16_t ppr)
 {
+  pulsesPerRotation = ppr;
   pinMode(Quadrature_Lead_Pulse_CW_Pin, INPUT_PULLUP);
   pinMode(Quadrature_Lead_Pulse_CCW_Pin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CW_Pin), PulseCW, RISING);

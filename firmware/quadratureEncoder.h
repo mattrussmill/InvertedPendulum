@@ -31,11 +31,11 @@ typedef enum {
 class QuadratureEncoder
 {
   public:
-    QuadratureEncoder(uint16_t ppr);  //Constructor
-    void Begin();                     //Start the QuadratureEncoder library
+    QuadratureEncoder();              //Constructor
+    void Begin(uint16_t ppr);         //Start the QuadratureEncoder library
     void SetHomePosition();           //Set the quadrature position to zero
     uint16_t GetPulsesPerRotation();  //Return the number of pulses in one rotation of the quadrature
-    int16_t GetCurrentPosition();     //Return the current position in pulses between 0 and ppr
+    int16_t GetCurrentPosition();     //Return the current position in pulses between 0 and ppr-1
     int32_t GetCurrentVelocity();     //Return the current velocity in pps (CCW is + / CW is -)
 
     // these methods are for use in the ISR only
