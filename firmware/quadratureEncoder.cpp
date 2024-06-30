@@ -47,8 +47,11 @@ QuadratureEncoder::QuadratureEncoder()
 void QuadratureEncoder::Begin(uint16_t ppr)
 {
   pulsesPerRotation = ppr;
+
+  //LDP3806 encoder uses an open-collector output. Enable internal input pullup resistors as they are required.
   pinMode(Quadrature_Lead_Pulse_CW_Pin, INPUT_PULLUP);
   pinMode(Quadrature_Lead_Pulse_CCW_Pin, INPUT_PULLUP);
+
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CW_Pin), PulseCW, RISING);
   attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CCW_Pin), PulseCCW, RISING);
   InitIsrIntervalForTimer2();
@@ -151,11 +154,13 @@ void QuadratureEncoder::PulseCW()
   class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
-    if (digitalRead(Quadrature_Lead_Pulse_CCW_Pin) == LOW)
+    // if both pins CW LOW and CCW LOW, complete a step
+    if (!(digitalRead(Quadrature_Lead_Pulse_CW_Pin) && digitalRead(Quadrature_Lead_Pulse_CCW_Pin)))
     {
       instancePtr->UpdatePosition(INCRIMENT_CW);
     }
-    else
+    // if both pins CW HIGH and CCW HIGH, complete a step
+    else if(!digitalRead(Quadrature_Lead_Pulse_CW_Pin) && !digitalRead(Quadrature_Lead_Pulse_CCW_Pin))
     {
       instancePtr->UpdatePosition(INCRIMENT_CCW);
     }
@@ -173,11 +178,13 @@ void QuadratureEncoder::PulseCCW()
   class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
-    if (digitalRead(Quadrature_Lead_Pulse_CW_Pin) == LOW)
+    // if both pins CW LOW and CCW LOW, complete a step
+    if (!(digitalRead(Quadrature_Lead_Pulse_CW_Pin) && digitalRead(Quadrature_Lead_Pulse_CCW_Pin)))
     {
       instancePtr->UpdatePosition(INCRIMENT_CCW);
     }
-    else
+    // if both pins CW HIGH and CCW HIGH, complete a step
+    else if(!digitalRead(Quadrature_Lead_Pulse_CW_Pin) && !digitalRead(Quadrature_Lead_Pulse_CCW_Pin))
     {
       instancePtr->UpdatePosition(INCRIMENT_CW);
     }
