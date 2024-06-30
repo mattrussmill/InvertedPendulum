@@ -74,10 +74,10 @@ StepperMotor::Begin()
       break;
   }
 
-  /* Set torque output current amplitude to 150mA. This reduces resonance noise level of the
-   * selected XY42STH34-0354A stepper motor and provides plenty of power to hold position and
-   * move the motor for the selected application */
-  L6474shield.CmdSetParam(0, L6474_TVAL, L6474shield.ConvertCurrentToTval(150.0)); //TODO was not using TVAL current to par tester -> give this a shot
+  /* Set torque output current amplitude to 325mA. This is below the current amplitude of 350mA 
+   * listed on the XY42STH34-0354A stepper motor datasheed and provides adequate power to hold 
+   * position and move the motor for the selected application */
+  L6474shield.CmdSetParam(0, L6474_TVAL, L6474shield.ConvertCurrentToTval(325.0));
 
   /* Keep power bridge active when stepper motor stops moving. This will have the stepper motor
    * hold its position when inactive. */
