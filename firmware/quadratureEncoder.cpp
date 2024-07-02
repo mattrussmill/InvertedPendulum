@@ -63,9 +63,6 @@ void QuadratureEncoder::Begin(uint16_t ppr)
 
   SetHomePosition();
   lastPositionTime = micros();
-
-
-  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 /******************************************************//**
