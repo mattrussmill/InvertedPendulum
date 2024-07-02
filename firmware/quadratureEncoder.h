@@ -17,8 +17,8 @@
 #include <inttypes.h>
 
 /// Digital pins used for the quadrature pulse signals
-#define Quadrature_Lead_Pulse_CW_Pin   (2) // Green wire
-#define Quadrature_Lead_Pulse_CCW_Pin  (3) // White wire
+#define Quadrature_Pulse_A_Pin  (2) // Green wire
+#define Quadrature_Pulse_B_Pin  (3) // White wire
 
 /// Value to increment based on direction
 typedef enum {
@@ -26,6 +26,15 @@ typedef enum {
   INCRIMENT_CW  = -1
 } incrementPosition_t;
 
+/// Masks for extracting the encoder states from the encoderState variable
+typedef enum {
+  MASK_GET_STATE_0         = 0b00000011,
+  MASK_GET_STATE_1         = 0b00001100,
+  MASK_GET_STATE_2         = 0b00110000,
+  MASK_GET_STATE_3         = 0b11000000,
+  MASK_A_TRANSITION_TO_B_COUNT = 0b1000,
+  MASK_B_TRANSITION_TO_A_COUNT = 0b0100
+} stateMask_t;
 
 /// QuadratureEncoder library class
 class QuadratureEncoder
@@ -40,7 +49,8 @@ class QuadratureEncoder
 
     // these methods are for use in the ISR only
     static class QuadratureEncoder *GetInstancePtr();  //pointer to access methods in ISR on a clock step
-    void IsrStepClockHandler();                 //function to be called internally, on each step of the ISR clock only
+    void IsrStepClockHandler();                        //function to be called internally, on each step of the ISR clock only
+    uint8_t GetEncoderState();                         //returns the stored states of the encoder
 
   private:
     void InitIsrIntervalForTimer2();
@@ -48,12 +58,14 @@ class QuadratureEncoder
     void CheckSpeedTimeout();
     void UpdatePosition(incrementPosition_t direction);
     void UpdateDirection(int8_t);
+    void UpdateState();
     unsigned long UpdateSpeed(uint32_t samples, unsigned long periodMicros);
     unsigned long UpdateAcceleration(unsigned long periodMicros);
-    static void PulseCW();
-    static void PulseCCW();
+    static void LeadPulseA();
+    static void LeadPulseB();
 
     // member variables
+    volatile uint8_t encoderState;              //Encoder state and previous 3 states of the quadrature stored as [n-3][n-2][n-1][n]
     uint16_t pulsesPerRotation;                 //Number of pulses in one rotation of the quadrature
     volatile int16_t position;                  //Position of the quadrature in pulses from 0 to ppr-1
     volatile uint16_t speed[2];                 //Filtered rotation speed in pulses per second (pps)

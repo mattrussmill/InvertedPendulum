@@ -49,14 +49,23 @@ void QuadratureEncoder::Begin(uint16_t ppr)
   pulsesPerRotation = ppr;
 
   //LDP3806 encoder uses an open-collector output. Enable internal input pullup resistors as they are required.
-  pinMode(Quadrature_Lead_Pulse_CW_Pin, INPUT_PULLUP);
-  pinMode(Quadrature_Lead_Pulse_CCW_Pin, INPUT_PULLUP);
+  pinMode(Quadrature_Pulse_A_Pin, INPUT_PULLUP);
+  pinMode(Quadrature_Pulse_B_Pin, INPUT_PULLUP);
 
-  attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CW_Pin), PulseCW, RISING);
-  attachInterrupt(digitalPinToInterrupt(Quadrature_Lead_Pulse_CCW_Pin), PulseCCW, RISING);
+  /* Initialize state history to in-between state history of so next pulse will be counted.
+   * Falling edge state 0b11 never exists, but can be masked for leading pulse state */
+  encoderState = 255;
+
+  // setup interrupts
+  attachInterrupt(digitalPinToInterrupt(Quadrature_Pulse_A_Pin), LeadPulseA, FALLING);
+  attachInterrupt(digitalPinToInterrupt(Quadrature_Pulse_B_Pin), LeadPulseB, FALLING);
   InitIsrIntervalForTimer2();
+
   SetHomePosition();
   lastPositionTime = micros();
+
+
+  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 /******************************************************//**
@@ -144,23 +153,23 @@ void QuadratureEncoder::InitIsrIntervalForTimer2()
 }
 
 /******************************************************//**
- * @brief  The ISR tied to the Quadrature_Lead_Pulse_CW_Pin 
+ * @brief  The ISR tied to the Quadrature_Pulse_A_Pin 
  * encoder pin used to incriment or decrement the position.
  * @param  None
  * @retval None
  **********************************************************/
-void QuadratureEncoder::PulseCW()
+void QuadratureEncoder::LeadPulseA()
 {
   class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
-    // if both pins CW LOW and CCW LOW, complete a step
-    if (!(digitalRead(Quadrature_Lead_Pulse_CW_Pin) && digitalRead(Quadrature_Lead_Pulse_CCW_Pin)))
-    {
-      instancePtr->UpdatePosition(INCRIMENT_CW);
-    }
-    // if both pins CW HIGH and CCW HIGH, complete a step
-    else if(!digitalRead(Quadrature_Lead_Pulse_CW_Pin) && !digitalRead(Quadrature_Lead_Pulse_CCW_Pin))
+    instancePtr->UpdateState();
+    uint8_t state = instancePtr->GetEncoderState();
+
+    /* if both pins A and B are LOW AND the previous state comes from 
+     * the opposite encoder falling edge (to prevent counting when encoder
+     * is at rest on falling edge between states), complete a step */
+    if (!(state & MASK_GET_STATE_0) && (state & MASK_B_TRANSITION_TO_A_COUNT))
     {
       instancePtr->UpdatePosition(INCRIMENT_CCW);
     }
@@ -168,25 +177,25 @@ void QuadratureEncoder::PulseCW()
 }
 
 /******************************************************//**
- * @brief  The ISR tied to the Quadrature_Lead_Pulse_CCW_Pin 
+ * @brief  The ISR tied to the Quadrature_Pulse_B_Pin 
  * encoder pin used to incriment or decrement the position.
  * @param  None
  * @retval None
  **********************************************************/
-void QuadratureEncoder::PulseCCW()
+void QuadratureEncoder::LeadPulseB()
 {
   class QuadratureEncoder* instancePtr = QuadratureEncoder::GetInstancePtr();
   if (instancePtr)
   {
-    // if both pins CW LOW and CCW LOW, complete a step
-    if (!(digitalRead(Quadrature_Lead_Pulse_CW_Pin) && digitalRead(Quadrature_Lead_Pulse_CCW_Pin)))
+    instancePtr->UpdateState();
+    uint8_t state = instancePtr->GetEncoderState();
+
+    /* if both pins A and B are LOW AND the previous state comes from 
+     * the opposite encoder falling edge (to prevent counting when encoder
+     * is at rest on falling edge between states), complete a step */
+    if ((!(state & MASK_GET_STATE_0)) && (state & MASK_A_TRANSITION_TO_B_COUNT))
     {
-      instancePtr->UpdatePosition(INCRIMENT_CCW);
-    }
-    // if both pins CW HIGH and CCW HIGH, complete a step
-    else if(!digitalRead(Quadrature_Lead_Pulse_CW_Pin) && !digitalRead(Quadrature_Lead_Pulse_CCW_Pin))
-    {
-      instancePtr->UpdatePosition(INCRIMENT_CW);
+        instancePtr->UpdatePosition(INCRIMENT_CW);
     }
   }
 } 
@@ -247,6 +256,20 @@ void QuadratureEncoder::UpdateDirection(int8_t newDirection)
 {
   newDirection != directionVector? reverseLpfBias = true : reverseLpfBias = false;
   directionVector = newDirection;
+}
+
+/******************************************************//**
+ * @brief  Updates the encoder state and stores the value in a bit
+ * shifted, 8-bit value. Each state occupies 2 bits in the order
+ * [n-3][n-2][n-1][n] with the [n-3] pair containing the MSB. The
+ * bit pairs are stored as signal BA where B leads A.
+ * @param  None
+ * @retval None
+ **********************************************************/
+void QuadratureEncoder::UpdateState()
+{
+  encoderState <<= 2;
+  encoderState |= ((digitalRead(Quadrature_Pulse_B_Pin) << 1) | digitalRead(Quadrature_Pulse_A_Pin));
 }
 
 /******************************************************//**
@@ -360,6 +383,17 @@ void QuadratureEncoder::IsrStepClockHandler()
 
     pulsesPerSample = 0;
     CheckFastCalcStatus();
+}
+
+/******************************************************//**
+ * @brief  Returns the most recently updated value of the encoder
+ * state by the UpdateState() member.
+ * @param  None
+ * @retval encoderState
+ **********************************************************/
+uint8_t QuadratureEncoder::GetEncoderState()
+{
+  return encoderState;
 }
 
 /******************************************************//**

@@ -79,6 +79,8 @@ StepperMotor::Begin()
    * position and move the motor for the selected application */
   L6474shield.CmdSetParam(0, L6474_TVAL, L6474shield.ConvertCurrentToTval(325.0));
 
+  // todo - determine if noise can be reduced through TOFF min and max values changing
+
   /* Keep power bridge active when stepper motor stops moving. This will have the stepper motor
    * hold its position when inactive. */
   L6474shield.SetHoldPositionOnStop(true);
