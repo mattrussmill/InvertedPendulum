@@ -344,15 +344,18 @@ unsigned long QuadratureEncoder::UpdateSpeed(uint32_t samples, unsigned long per
  * @brief  To be called by the IsrStepClockHandler, this method
  * performs the timeout check for when the quadrature has stopped
  * moving and sets the current speed to zero. The timeout period
- * scales from half of the Isr_Sample_Period_Us period half the
- * period times the Fast_Calc_Threshold. It scales so that the
- * slower the rotational velocity, the longer the timeout duration.
+ * threshold scales to the next longest smaple period assuming
+ * negative acceleration. This gives ample time for the pendulum
+ * to move before a timeout would occur unexpectedly.
  * @param  None
  * @retval None
  **********************************************************/
 void QuadratureEncoder::CheckSpeedTimeout()
 {
-  if (micros() - lastPositionTime > (Fast_Calc_Threshold - (uint32_t)speed[0]) * Isr_Sample_Period_Us / 2 ) {
+  unsigned long timeoutThreshold = speed[0] > 1 ? 1000000L / (speed[0] - 1) : 1000000L;
+
+  if (micros() - lastPositionTime > timeoutThreshold)
+  {
     speed[1] = speed[0];
     speed[0] = 0;
   }

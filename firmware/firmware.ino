@@ -73,9 +73,9 @@ void loop()
 
   // delay(2000);
 
-
-  Serial.println(pendulum.GetCurrentPositionDeg());
-  //Serial.println(pendulum.GetCurrentVelocityDeg());
+  delay(50);
+  //Serial.println(pendulum.GetCurrentPositionDeg());
+  Serial.println(pendulum.GetCurrentVelocityDeg());
 
 
 }
