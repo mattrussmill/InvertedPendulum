@@ -17,13 +17,10 @@ unsigned long tmp = millis();
 void setup()
 {
 
-//----- Init
+// //----- Init
 
-
+//   // Must initialize this first as pendulum disables and takes over some interrupt pins
   stepperMotor.Begin();
-
-
-
 
   /* Start the library to use the quadrature encoder. This library is configured to only support
    * one encoder per application. The quadrature initialization step occupies the following pins
@@ -32,27 +29,18 @@ void setup()
   position = pendulum.GetCurrentPositionDeg();
   velocity = pendulum.GetCurrentVelocityDeg();
 
-  
-  // // set speed after moving starts on Run? Weird...
-  // //L6474shield.Run(0, BACKWARD);
-  // //L6474shield.SetMaxSpeed(0,1600);
-
-  // L6474shield.GoTo(0,0);
-  //L6474shield.CmdEnable(0); //how to hold position -> add functions to hold position on stop
-  //L6474shield.GoTo(0,0);
   Serial.begin(9600); 
 
-  //TODO list:
-  // modify the shield code to have AndStop methods or toggle 
-  // write HAL objects to abstract away the BSPs
-  // CAD enclosure / stand with power button
-  stepperMotor.SetHome();
-  stepperMotor.SetAccelerationDeg(800.0);
-  stepperMotor.SetDecelerationDeg(800.0);
-  Serial.println(stepperMotor.SetMinSpeedDeg(45.0));
-  Serial.println(stepperMotor.SetMaxSpeedDeg(720.0));
+  // //TODO list:
+  // // modify the shield code to have AndStop methods or toggle 
+  // // write HAL objects to abstract away the BSPs
+  // // CAD enclosure / stand with power button
+  // stepperMotor.SetHome();
+  // stepperMotor.SetAccelerationDeg(800.0);
+  // stepperMotor.SetDecelerationDeg(800.0);
+  // Serial.println(stepperMotor.SetMinSpeedDeg(45.0));
+  // Serial.println(stepperMotor.SetMaxSpeedDeg(720.0));
 
-  //stepperMotor.Run(CCW);
 }
 
 void loop()
@@ -74,8 +62,6 @@ void loop()
   // delay(2000);
 
   delay(50);
-  //Serial.println(pendulum.GetCurrentPositionDeg());
-  Serial.println(pendulum.GetCurrentVelocityDeg());
-
+  Serial.println(pendulum.GetCurrentPositionDeg());
 
 }
